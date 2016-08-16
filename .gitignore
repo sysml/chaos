@@ -1,0 +1,20 @@
+# Application binaries
+
+# Prerequisites
+*.d
+
+# Objects
+*.o
+
+# Libraries
+*.a
+*.so
+*.so.*
+
+# Vim
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*~
+
+# Configuration
+.config

@@ -1,0 +1,5 @@
+# libh2
+
+LIBH2_V_MAJOR   := 1
+LIBH2_V_MINOR   := 0
+LIBH2_V_BUGFIX  := 0
