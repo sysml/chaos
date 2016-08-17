@@ -35,7 +35,7 @@ clean:
 	$(call cmd, "CLEAN", "*.d", rm -rf, $(shell find -name "*.d"))
 
 distclean: clean
-	$(call cmd, "CLEAN", $(config), rm -f, config.mk)
+	$(call cmd, "CLEAN", $(config), rm -f, $(config))
 
 .PHONY: all tests install configure clean distclean
 
