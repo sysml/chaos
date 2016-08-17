@@ -18,7 +18,22 @@ LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2 -name "*.c"))
 
 
 # Default build flags
-CFLAGS		+= -Iinc -Wall -MD -MP -std=gnu11 -g -O3
+CFLAGS		+= -Iinc
+CFLAGS		+= -std=gnu11
+CFLAGS		+= -Wall -MD -MP -g -O3
+
+XEN_CFLAGS	:=
+XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/include
+XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/libxc/include
+
+XEN_LDFLAGS	:=
+XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/call
+XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/evtchn
+XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/foreignmemory
+XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/gnttab
+XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/toollog
+XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libxc
+XEN_LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog
 
 
 # Targets
@@ -50,12 +65,13 @@ $(config): config.in
 	$(call cmd, "CONFIG", $@, cp -n, $^ $@)
 
 $(LIBH2): LDFLAGS += -shared
-$(LIBH2): LDFLAGS += -lxenctrl
 $(LIBH2): LDFLAGS += -Wl,-soname,libh2.so.$(LIBH2_V_MAJOR)
+$(LIBH2): LDFLAGS += $(XEN_LDFLAGS)
 $(LIBH2): $(LIBH2_OBJ)
 	$(call clink, $^, $@)
 
 $(LIBH2_OBJ): CFLAGS += -fPIC
+$(LIBH2_OBJ): CFLAGS += $(XEN_CFLAGS)
 
 %.o: %.c $(config)
 	$(call ccompile, $<, $@)
