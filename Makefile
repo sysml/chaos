@@ -50,6 +50,7 @@ clean:
 	$(call cmd, "CLEAN", "*.d", rm -rf, $(shell find -name "*.d"))
 
 distclean: clean
+	$(call cmd, "CLEAN", "libh2", rm -f, $(LIBH2))
 	$(call cmd, "CLEAN", $(config), rm -f, $(config))
 
 .PHONY: all tests install configure clean distclean
