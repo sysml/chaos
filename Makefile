@@ -12,7 +12,7 @@ endif
 # Tests
 
 # Libraries
-LIBH2		:= lib/h2/libh2.so.$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
+LIBH2		:= lib/libh2.so.$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
 LIBH2_OBJ	:=
 LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2 -name "*.c"))
 
