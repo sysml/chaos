@@ -37,7 +37,7 @@
 #include <h2/xen/dev.h>
 
 
-h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, enum h2_xen_dev_t type, int* idx)
+h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
 {
     for (; (*idx) < H2_XEN_DEV_COUNT_MAX; (*idx)++) {
         if (guest->hyp.info.xen->devs[(*idx)].type == type) {

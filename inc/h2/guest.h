@@ -46,6 +46,7 @@ enum h2_kernel_buff_t {
     h2_kernel_buff_t_mem  ,
     h2_kernel_buff_t_file ,
 };
+typedef enum h2_kernel_buff_t h2_kernel_buff_t;
 
 struct h2_guest {
     h2_guest_id id;
@@ -60,7 +61,7 @@ struct h2_guest {
     } vcpus;
 
     struct kernel {
-        enum h2_kernel_buff_t type;
+        h2_kernel_buff_t type;
         union {
             struct mem {
                 void* ptr;

@@ -43,9 +43,10 @@
 enum h2_hyp_t {
     h2_hyp_t_xen ,
 };
+typedef enum h2_hyp_t h2_hyp_t;
 
 struct h2_hyp_ctx {
-    enum h2_hyp_t type;
+    h2_hyp_t type;
 
     union {
         h2_xen_ctx* xen;
@@ -54,7 +55,7 @@ struct h2_hyp_ctx {
 typedef struct h2_hyp_ctx h2_hyp_ctx;
 
 struct h2_hyp_guest {
-    enum h2_hyp_t type;
+    h2_hyp_t type;
 
     union {
         h2_xen_guest* xen;

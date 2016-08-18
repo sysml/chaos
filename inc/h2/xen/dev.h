@@ -40,6 +40,6 @@
 #include <h2/h2.h>
 
 
-h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, enum h2_xen_dev_t type, int* idx);
+h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx);
 
 #endif /* __H2__XEN__DEV__H__ */

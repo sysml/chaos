@@ -42,7 +42,7 @@
 #include <errno.h>
 
 
-int h2_open(h2_ctx** ctx, enum h2_hyp_t hyp)
+int h2_open(h2_ctx** ctx, h2_hyp_t hyp)
 {
     int ret;
 
@@ -97,7 +97,7 @@ void h2_close(h2_ctx** ctx)
     (*ctx) = NULL;
 }
 
-int h2_guest_alloc(h2_guest** guest, enum h2_hyp_t hyp)
+int h2_guest_alloc(h2_guest** guest, h2_hyp_t hyp)
 {
     int ret;
 

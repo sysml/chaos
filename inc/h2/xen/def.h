@@ -61,6 +61,7 @@ enum h2_xen_dev_t {
     h2_xen_dev_t_xenstore ,
     h2_xen_dev_t_console  ,
 };
+typedef enum h2_xen_dev_t h2_xen_dev_t;
 
 struct h2_xen_dev_xenstore {
     domid_t backend_id;
@@ -77,7 +78,7 @@ struct h2_xen_dev_console {
 typedef struct h2_xen_dev_console h2_xen_dev_console;
 
 struct h2_xen_dev {
-    enum h2_xen_dev_t type;
+    h2_xen_dev_t type;
     union {
         h2_xen_dev_xenstore xenstore;
         h2_xen_dev_console console;
