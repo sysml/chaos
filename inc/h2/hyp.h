@@ -37,7 +37,7 @@
 #ifndef __H2__HYP__H__
 #define __H2__HYP__H__
 
-#include <h2/xendef.h>
+#include <h2/xen/def.h>
 
 
 enum h2_hyp_t {

@@ -34,8 +34,8 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#ifndef __H2__XENDEF__H__
-#define __H2__XENDEF__H__
+#ifndef __H2__XEN__DEF__H__
+#define __H2__XEN__DEF__H__
 
 #define _GNU_SOURCE
 
@@ -94,4 +94,4 @@ struct h2_xen_guest {
 };
 typedef struct h2_xen_guest h2_xen_guest;
 
-#endif /* __H2__XENDEF__H__ */
+#endif /* __H2__XEN__DEF__H__ */
