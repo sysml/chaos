@@ -12,7 +12,11 @@ endif
 # Tests
 
 # Libraries
-LIBH2		:= lib/libh2.so.$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
+LIBH2_A		:= libh2.a
+LIBH2_SO	:= libh2.so
+LIBH2_SO_V	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
+LIBH2_SO_VM	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR)
+
 LIBH2_OBJ	:=
 LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2 -name "*.c"))
 
@@ -37,11 +41,17 @@ XEN_LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog
 
 
 # Targets
-all: $(LIBH2)
+all: lib/$(LIBH2_SO) lib/$(LIBH2_A)
 
 tests:
 
-install:
+install: lib/$(LIBH2_SO)
+	$(call cmd, "INSTALL", "include/h2", cp -r, inc/h2 /usr/local/include/)
+	$(call cmd, "INSTALL", $(LIBH2_A), cp, lib/$(LIBH2_A) /usr/local/lib/)
+	$(call cmd, "INSTALL", $(LIBH2_SO), ln -sf, $(LIBH2_SO_V) /usr/local/lib/$(LIBH2_SO))
+	$(call cmd, "INSTALL", $(LIBH2_SO_VM), ln -sf, $(LIBH2_SO_V) /usr/local/lib/$(LIBH2_SO_VM))
+	$(call cmd, "INSTALL", $(LIBH2_SO_V), cp, lib/$(LIBH2_SO) /usr/local/lib/$(LIBH2_SO_V))
+	$(call cmd, "LDCONFIG", "", ldconfig)
 
 configure: $(config)
 
@@ -50,13 +60,14 @@ clean:
 	$(call cmd, "CLEAN", "*.d", rm -rf, $(shell find -name "*.d"))
 
 distclean: clean
-	$(call cmd, "CLEAN", "libh2", rm -f, $(LIBH2))
+	$(call cmd, "CLEAN", $(LIBH2_A), rm -f, lib/$(LIBH2_A))
+	$(call cmd, "CLEAN", $(LIBH2_SO), rm -f, lib/$(LIBH2_SO))
 	$(call cmd, "CLEAN", $(config), rm -f, $(config))
 
 .PHONY: all tests install configure clean distclean
 
 
-libh2: $(LIBH2)
+libh2: $(LIBH2_SO)
 
 .PHONY: libh2
 
@@ -65,11 +76,14 @@ libh2: $(LIBH2)
 $(config): config.in
 	$(call cmd, "CONFIG", $@, cp -n, $^ $@)
 
-$(LIBH2): LDFLAGS += -shared
-$(LIBH2): LDFLAGS += -Wl,-soname,libh2.so.$(LIBH2_V_MAJOR)
-$(LIBH2): LDFLAGS += $(XEN_LDFLAGS)
-$(LIBH2): $(LIBH2_OBJ)
+lib/$(LIBH2_SO): LDFLAGS += -shared
+lib/$(LIBH2_SO): LDFLAGS += -Wl,-soname,libh2.so.$(LIBH2_V_MAJOR)
+lib/$(LIBH2_SO): LDFLAGS += $(XEN_LDFLAGS)
+lib/$(LIBH2_SO): $(LIBH2_OBJ)
 	$(call clink, $^, $@)
+
+lib/$(LIBH2_A): $(LIBH2_OBJ)
+	$(call cmd, "AR", "lib/$(LIBH2_A)", ar rcs, $@ $^)
 
 $(LIBH2_OBJ): CFLAGS += -fPIC
 $(LIBH2_OBJ): CFLAGS += $(XEN_CFLAGS)
