@@ -20,7 +20,7 @@ LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2 -name "*.c"))
 # Default build flags
 CFLAGS		+= -Iinc
 CFLAGS		+= -std=gnu11
-CFLAGS		+= -Wall -MD -MP -g -O3
+CFLAGS		+= -Wall -MD -MP -g
 
 XEN_CFLAGS	:=
 XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/include
