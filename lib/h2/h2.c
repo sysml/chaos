@@ -97,45 +97,68 @@ void h2_close(h2_ctx** ctx)
     (*ctx) = NULL;
 }
 
-void h2_guest_init(h2_guest* guest, enum h2_hyp_t hyp)
+int h2_guest_alloc(h2_guest** guest, enum h2_hyp_t hyp)
 {
-    memset(guest, 0, sizeof(h2_guest));
+    int ret;
 
-    guest->hyp.type = hyp;
+    if (guest == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    (*guest) = (h2_guest*) calloc(1, sizeof(h2_guest));
+    if ((*guest) == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    (*guest)->hyp.type = hyp;
     switch (hyp) {
         case h2_hyp_t_xen:
-            h2_xen_guest_init(&(guest->hyp.info.xen));
+            h2_xen_guest_init(&((*guest)->hyp.info.xen));
             break;
     }
+
+    return 0;
+
+out_err:
+    return ret;
 }
 
-void h2_guest_free(h2_guest* guest)
+void h2_guest_free(h2_guest** guest)
 {
-    if (guest->name) {
-        free(guest->name);
-        guest->name = NULL;
+    if (guest == NULL || (*guest) == NULL) {
+        return;
     }
 
-    if (guest->cmdline) {
-        free(guest->cmdline);
-        guest->cmdline = NULL;
+    if ((*guest)->name) {
+        free((*guest)->name);
+        (*guest)->name = NULL;
     }
 
-    switch (guest->kernel.type) {
+    if ((*guest)->cmdline) {
+        free((*guest)->cmdline);
+        (*guest)->cmdline = NULL;
+    }
+
+    switch ((*guest)->kernel.type) {
         case h2_kernel_buff_t_file:
-            free(guest->kernel.buff.path);
-            guest->kernel.buff.path = NULL;
+            free((*guest)->kernel.buff.path);
+            (*guest)->kernel.buff.path = NULL;
             break;
 
         case h2_kernel_buff_t_mem:
             break;
     }
 
-    switch (guest->hyp.type) {
+    switch ((*guest)->hyp.type) {
         case h2_hyp_t_xen:
-            h2_xen_guest_free(&(guest->hyp.info.xen));
+            h2_xen_guest_free(&((*guest)->hyp.info.xen));
             break;
     }
+
+    free(*guest);
+    (*guest) = NULL;
 }
 
 

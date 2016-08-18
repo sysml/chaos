@@ -627,24 +627,27 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     int ret;
     int _ret;
 
-    h2_guest guest;
+    h2_guest* guest;
 
-    h2_guest_init(&guest, h2_hyp_t_xen);
+    ret = h2_guest_alloc(&guest, h2_hyp_t_xen);
+    if (ret) {
+        ret = errno;
+        goto out;
+    }
 
-    guest.id = id;
-    guest.hyp.info.xen.xs_dom_path = xs_get_domain_path(ctx->xsh, guest.id);
+    guest->id = id;
+    guest->hyp.info.xen.xs_dom_path = xs_get_domain_path(ctx->xsh, guest->id);
 
-    ret = 0;
-
-    _ret = __xc_domain_destroy(ctx, &guest);
+    _ret = __xc_domain_destroy(ctx, guest);
     if (_ret && !ret) {
         ret = _ret;
     }
 
-    _ret = __xs_domain_destroy(ctx, &guest);
+    _ret = __xs_domain_destroy(ctx, guest);
     if (_ret && !ret) {
         ret = _ret;
     }
 
+out:
     return ret;
 }

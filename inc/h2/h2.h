@@ -50,8 +50,8 @@ typedef struct h2_ctx h2_ctx;
 int h2_open(h2_ctx** ctx, enum h2_hyp_t hyp);
 void h2_close(h2_ctx** ctx);
 
-void h2_guest_init(h2_guest* guest, enum h2_hyp_t hyp);
-void h2_guest_free(h2_guest* guest);
+int h2_guest_alloc(h2_guest** guest, enum h2_hyp_t hyp);
+void h2_guest_free(h2_guest** guest);
 
 int h2_guest_create(h2_ctx* ctx, h2_guest* guest);
 int h2_guest_destroy(h2_ctx* ctx, h2_guest_id id);
