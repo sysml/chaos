@@ -115,11 +115,22 @@ int h2_guest_alloc(h2_guest** guest, enum h2_hyp_t hyp)
     (*guest)->hyp.type = hyp;
     switch (hyp) {
         case h2_hyp_t_xen:
-            h2_xen_guest_init(&((*guest)->hyp.info.xen));
+            ret = h2_xen_guest_alloc(&((*guest)->hyp.info.xen));
             break;
+
+        default:
+            ret = EINVAL;
+            break;
+    }
+    if (ret)  {
+        goto out_mem;
     }
 
     return 0;
+
+out_mem:
+    free(*guest);
+    (*guest) = NULL;
 
 out_err:
     return ret;

@@ -116,25 +116,48 @@ void h2_xen_close(h2_xen_ctx** ctx)
 }
 
 
-void h2_xen_guest_init(h2_xen_guest* guest)
+int h2_xen_guest_alloc(h2_xen_guest** guest)
 {
-    /* We assume the struct was initialized with 0, so nothing to do here. */
+    int ret;
+
+    if (guest == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    (*guest) = (h2_xen_guest*) calloc(1, sizeof(h2_xen_guest));
+    if ((*guest) == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    return 0;
+
+out_err:
+    return ret;
 }
 
-void h2_xen_guest_free(h2_xen_guest* guest)
+void h2_xen_guest_free(h2_xen_guest** guest)
 {
-    if (guest->xs_dom_path) {
-        free(guest->xs_dom_path);
-        guest->xs_dom_path = NULL;
+    if (guest == NULL || (*guest) == NULL) {
+        return;
     }
+
+    if ((*guest)->xs_dom_path) {
+        free((*guest)->xs_dom_path);
+        (*guest)->xs_dom_path = NULL;
+    }
+
+    free(*guest);
+    (*guest) = NULL;
 }
 
 
 static h2_xen_dev* __xen_get_next_dev(h2_guest* guest, enum h2_xen_dev_t type, int* idx)
 {
     for (; (*idx) < H2_XEN_DEV_COUNT_MAX; (*idx)++) {
-        if (guest->hyp.info.xen.devs[(*idx)].type == type) {
-            return &(guest->hyp.info.xen.devs[(*idx)]);
+        if (guest->hyp.info.xen->devs[(*idx)].type == type) {
+            return &(guest->hyp.info.xen->devs[(*idx)]);
         }
     }
 
@@ -426,7 +449,7 @@ th_end:
         }
     }
 
-    guest->hyp.info.xen.xs_dom_path = dom_path;
+    guest->hyp.info.xen->xs_dom_path = dom_path;
 
     free(domid_str);
     free(name_path);
@@ -439,7 +462,7 @@ th_end:
 
 static int __xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    if (!xs_rm(ctx->xsh, XBT_NULL, guest->hyp.info.xen.xs_dom_path)) {
+    if (!xs_rm(ctx->xsh, XBT_NULL, guest->hyp.info.xen->xs_dom_path)) {
         return errno;
     }
 
@@ -475,7 +498,7 @@ static int __xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_cons
     dom_rw[0].id = guest->id;
     dom_rw[0].perms = XS_PERM_NONE;
 
-    dom_path = guest->hyp.info.xen.xs_dom_path;
+    dom_path = guest->hyp.info.xen->xs_dom_path;
 
     asprintf(&console_path, "%s/console", dom_path);
     asprintf(&type_path, "%s/type", console_path);
@@ -636,7 +659,7 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     }
 
     guest->id = id;
-    guest->hyp.info.xen.xs_dom_path = xs_get_domain_path(ctx->xsh, guest->id);
+    guest->hyp.info.xen->xs_dom_path = xs_get_domain_path(ctx->xsh, guest->id);
 
     _ret = __xc_domain_destroy(ctx, guest);
     if (_ret && !ret) {

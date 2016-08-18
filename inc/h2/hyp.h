@@ -57,7 +57,7 @@ struct h2_hyp_guest {
     enum h2_hyp_t type;
 
     union {
-        h2_xen_guest xen;
+        h2_xen_guest* xen;
     } info;
 };
 typedef struct h2_hyp_guest h2_hyp_guest;
