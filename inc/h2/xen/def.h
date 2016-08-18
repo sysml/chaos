@@ -43,7 +43,6 @@
 #include <stdlib.h>
 #include <xenstore.h>
 #include <xenctrl.h>
-#include <xenevtchn.h>
 
 
 struct h2_xen_ctx {
