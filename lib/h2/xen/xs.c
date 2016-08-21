@@ -44,6 +44,23 @@
 #include <xenstore.h>
 
 
+static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key, char* value)
+{
+    int ret;
+    char* fpath;
+
+    asprintf(&fpath, "%s/%s", path, key);
+
+    ret = 0;
+    if (!xs_write(ctx->xsh, th, fpath, value, strlen(value))) {
+        ret = errno;
+    }
+
+    free(fpath);
+
+    return ret;
+}
+
 int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
