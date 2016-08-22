@@ -67,10 +67,8 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     xs_transaction_t th;
 
-    char* dom_path = NULL;
     char* domid_str = NULL;
-    char* name_path = NULL;
-    char* domid_path = NULL;
+    char* dom_path = NULL;
     char* data_path = NULL;
     char* shutdown_path = NULL;
 
@@ -88,8 +86,6 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dom_path = xs_get_domain_path(ctx->xsh, guest->id);
 
     asprintf(&domid_str, "%u", (unsigned int) guest->id);
-    asprintf(&name_path, "%s/name", dom_path);
-    asprintf(&domid_path, "%s/domid", dom_path);
     asprintf(&data_path, "%s/data", dom_path);
     asprintf(&shutdown_path, "%s/control/shutdown", dom_path);
 
@@ -124,13 +120,13 @@ th_start:
         goto th_end;
     }
 
-    if (!xs_write(ctx->xsh, th, name_path, guest->name, strlen(guest->name))) {
-        ret = errno;
+    ret = __write_kv(ctx, th, dom_path, "name", guest->name);
+    if (ret) {
         goto th_end;
     }
 
-    if (xs_write(ctx->xsh, th, domid_path, domid_str, strlen(domid_str))) {
-        ret = errno;
+    ret = __write_kv(ctx, th, dom_path, "domid", domid_str);
+    if (ret) {
         goto th_end;
     }
 
@@ -150,8 +146,6 @@ th_end:
     guest->hyp.info.xen->xs_dom_path = dom_path;
 
     free(domid_str);
-    free(name_path);
-    free(domid_path);
     free(data_path);
     free(shutdown_path);
 
@@ -184,9 +178,6 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
 
     char* dom_path;
     char* console_path;
-    char* type_path;
-    char* mfn_path;
-    char* evtchn_path;
     char* type_val;
     char* mfn_val;
     char* evtchn_val;
@@ -199,9 +190,6 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
     dom_path = guest->hyp.info.xen->xs_dom_path;
 
     asprintf(&console_path, "%s/console", dom_path);
-    asprintf(&type_path, "%s/type", console_path);
-    asprintf(&mfn_path, "%s/ring-ref", console_path);
-    asprintf(&evtchn_path, "%s/port", console_path);
     asprintf(&mfn_val, "%lu", console->mfn);
     asprintf(&evtchn_val, "%u", console->evtchn);
     type_val = "xenconsoled";
@@ -214,24 +202,23 @@ th_start:
         ret = errno;
         goto th_end;
     }
-
     if (!xs_set_permissions(ctx->xsh, th, console_path, dom_rw, 1)) {
         ret = errno;
         goto th_end;
     }
 
-    if (!xs_write(ctx->xsh, th, type_path, type_val, strlen(type_val))) {
-        ret = errno;
+    ret = __write_kv(ctx, th, console_path, "type", type_val);
+    if (ret) {
         goto th_end;
     }
 
-    if (!xs_write(ctx->xsh, th, mfn_path, mfn_val, strlen(mfn_val))) {
-        ret = errno;
+    ret = __write_kv(ctx, th, console_path, "ring-ref", mfn_val);
+    if (ret) {
         goto th_end;
     }
 
-    if (!xs_write(ctx->xsh, th, evtchn_path, evtchn_val, strlen(evtchn_val))) {
-        ret = errno;
+    ret = __write_kv(ctx, th, console_path, "port", evtchn_val);
+    if (ret) {
         goto th_end;
     }
 
@@ -249,9 +236,6 @@ th_end:
     }
 
     free(console_path);
-    free(type_path);
-    free(mfn_path);
-    free(evtchn_path);
     free(mfn_val);
     free(evtchn_val);
 
