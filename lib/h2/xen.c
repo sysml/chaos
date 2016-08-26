@@ -260,6 +260,9 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
         ret = _ret;
     }
 
+
+    h2_guest_free(&guest);
+
 out:
     return ret;
 }
