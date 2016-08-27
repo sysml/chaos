@@ -145,6 +145,10 @@ void h2_xen_guest_free(h2_xen_guest** guest)
         (*guest)->xs_dom_path = NULL;
     }
 
+    for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        h2_xen_dev_free(&((*guest)->devs[i]));
+    }
+
     free(*guest);
     (*guest) = NULL;
 }
@@ -210,6 +214,14 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
+    ret = 0;
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX && !ret; i++) {
+        ret = h2_xen_dev_create(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+    }
+    if (ret) {
+        goto out_dev;
+    }
+
     if (xenstore != NULL) {
         ret = h2_xen_xs_domain_intro(ctx, guest, xenstore);
         if (ret) {
@@ -223,6 +235,11 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     return 0;
+
+out_dev:
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+    }
 
 out_xs:
     h2_xen_xs_domain_destroy(ctx, guest);
@@ -250,6 +267,9 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     guest->id = id;
     guest->hyp.info.xen->xs_dom_path = xs_get_domain_path(ctx->xsh, guest->id);
 
+
+    /* FIXME: Need to enumerate devices, so that they're destroyed */
+
     _ret = h2_xen_xc_domain_destroy(ctx, guest);
     if (_ret && !ret) {
         ret = _ret;
@@ -258,6 +278,13 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     _ret = h2_xen_xs_domain_destroy(ctx, guest);
     if (_ret && !ret) {
         ret = _ret;
+    }
+
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        _ret = h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+        if (_ret && !ret) {
+            ret = _ret;
+        }
     }
 
 

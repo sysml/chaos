@@ -37,6 +37,23 @@
 #include <h2/xen/dev.h>
 
 
+void h2_xen_dev_free(h2_xen_dev* dev)
+{
+    switch (dev->type) {
+        case h2_xen_dev_t_none:
+            break;
+
+        case h2_xen_dev_t_xenstore:
+            break;
+
+        case h2_xen_dev_t_console:
+            break;
+    }
+
+    dev->type = h2_xen_dev_t_none;
+}
+
+
 h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
 {
     for (; (*idx) < H2_XEN_DEV_COUNT_MAX; (*idx)++) {
@@ -46,4 +63,45 @@ h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
     }
 
     return NULL;
+}
+
+
+int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
+{
+    int ret;
+
+    ret = 0;
+    switch (dev->type) {
+        case h2_xen_dev_t_none:
+            break;
+
+        case h2_xen_dev_t_xenstore:
+            break;
+
+        case h2_xen_dev_t_console:
+            /* FIXME: Support adding more than one console. */
+            break;
+    }
+
+    return ret;
+}
+
+int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
+{
+    int ret;
+
+    ret = 0;
+    switch (dev->type) {
+        case h2_xen_dev_t_none:
+            break;
+
+        case h2_xen_dev_t_xenstore:
+            break;
+
+        case h2_xen_dev_t_console:
+            /* FIXME: Support adding more than one console. */
+            break;
+    }
+
+    return ret;
 }

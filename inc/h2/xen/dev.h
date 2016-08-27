@@ -40,6 +40,13 @@
 #include <h2/h2.h>
 
 
+void h2_xen_dev_free(h2_xen_dev* dev);
+
+
 h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx);
+
+
+int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev);
+int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev);
 
 #endif /* __H2__XEN__DEV__H__ */
