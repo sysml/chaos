@@ -263,7 +263,6 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
 
     ret = h2_guest_alloc(&guest, h2_hyp_t_xen);
     if (ret) {
-        ret = errno;
         goto out;
     }
 
@@ -273,9 +272,11 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
 
     /* FIXME: Need to enumerate devices, so that they're destroyed */
 
-    _ret = h2_xen_xc_domain_destroy(ctx, guest);
-    if (_ret && !ret) {
-        ret = _ret;
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        _ret = h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+        if (_ret && !ret) {
+            ret = _ret;
+        }
     }
 
     _ret = h2_xen_xs_domain_destroy(ctx, guest);
@@ -283,11 +284,9 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
         ret = _ret;
     }
 
-    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
-        _ret = h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
-        if (_ret && !ret) {
-            ret = _ret;
-        }
+    _ret = h2_xen_xc_domain_destroy(ctx, guest);
+    if (_ret && !ret) {
+        ret = _ret;
     }
 
 
