@@ -45,6 +45,10 @@
 #include <xenctrl.h>
 
 
+struct h2_xen_cfg {
+};
+typedef struct h2_xen_cfg h2_xen_cfg;
+
 struct h2_xen_ctx {
     domid_t xs_domid;
     struct xs_handle* xsh;

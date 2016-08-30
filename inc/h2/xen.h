@@ -40,7 +40,7 @@
 #include <h2/h2.h>
 
 
-int h2_xen_open(h2_xen_ctx** ctx);
+int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg);
 void h2_xen_close(h2_xen_ctx** ctx);
 
 int h2_xen_guest_alloc(h2_xen_guest** guest);

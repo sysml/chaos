@@ -47,7 +47,7 @@ struct h2_ctx {
 typedef struct h2_ctx h2_ctx;
 
 
-int h2_open(h2_ctx** ctx, h2_hyp_t hyp);
+int h2_open(h2_ctx** ctx, h2_hyp_t hyp, h2_hyp_cfg* cfg);
 void h2_close(h2_ctx** ctx);
 
 int h2_guest_alloc(h2_guest** guest, h2_hyp_t hyp);

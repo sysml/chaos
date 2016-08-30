@@ -42,7 +42,7 @@
 #include <errno.h>
 
 
-int h2_open(h2_ctx** ctx, h2_hyp_t hyp)
+int h2_open(h2_ctx** ctx, h2_hyp_t hyp, h2_hyp_cfg* cfg)
 {
     int ret;
 
@@ -61,7 +61,7 @@ int h2_open(h2_ctx** ctx, h2_hyp_t hyp)
 
     switch (hyp) {
         case h2_hyp_t_xen:
-            ret = h2_xen_open(&((*ctx)->hyp.ctx.xen));
+            ret = h2_xen_open(&((*ctx)->hyp.ctx.xen), &(cfg->xen));
             break;
         default:
             ret = EINVAL;

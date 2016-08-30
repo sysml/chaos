@@ -40,7 +40,7 @@
 #include <h2/xen/xs.h>
 
 
-int h2_xen_open(h2_xen_ctx** ctx)
+int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
 {
     int ret;
 

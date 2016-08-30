@@ -45,6 +45,11 @@ enum h2_hyp_t {
 };
 typedef enum h2_hyp_t h2_hyp_t;
 
+union h2_hyp_cfg {
+    h2_xen_cfg xen;
+};
+typedef union h2_hyp_cfg h2_hyp_cfg;
+
 struct h2_hyp_ctx {
     h2_hyp_t type;
 
