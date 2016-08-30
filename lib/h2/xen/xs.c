@@ -61,6 +61,25 @@ static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* ke
     return ret;
 }
 
+static int __read_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key, char** value)
+{
+    int ret;
+    char* fpath;
+    unsigned int len;
+
+    ret = 0;
+    asprintf(&fpath, "%s/%s", path, key);
+
+    (*value) = xs_read(ctx->xsh, th, fpath, &len);
+    if ((*value)) {
+        ret = errno;
+    }
+
+    free(fpath);
+
+    return ret;
+}
+
 int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
