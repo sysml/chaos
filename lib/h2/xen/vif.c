@@ -71,12 +71,14 @@ int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
         goto out_err;
     }
 
-    ret = h2_xen_xs_vif_create(ctx, guest, vif);
-    if (ret) {
-        goto out_err;
-    }
+    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+        ret = h2_xen_xs_vif_create(ctx, guest, vif);
+        if (ret) {
+            goto out_err;
+        }
 
-    vif->valid = true;
+        vif->valid = true;
+    }
 
     return 0;
 
@@ -93,12 +95,14 @@ int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
         goto out_err;
     }
 
-    ret = h2_xen_xs_vif_destroy(ctx, guest, vif);
-    if (ret) {
-        goto out_err;
-    }
+    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+        ret = h2_xen_xs_vif_destroy(ctx, guest, vif);
+        if (ret) {
+            goto out_err;
+        }
 
-    vif->valid = false;
+        vif->valid = false;
+    }
 
     return 0;
 

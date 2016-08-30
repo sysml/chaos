@@ -42,7 +42,8 @@
 
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
-        h2_xen_dev_xenstore* xenstore, h2_xen_dev_console* console);
+        bool xs_active, domid_t xs_domid, evtchn_port_t xs_evtchn, unsigned int* xs_mfn,
+        h2_xen_dev_console* console);
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
 

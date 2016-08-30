@@ -70,17 +70,10 @@ typedef struct h2_xen_ctx h2_xen_ctx;
 
 enum h2_xen_dev_t {
     h2_xen_dev_t_none = 0 ,
-    h2_xen_dev_t_xenstore ,
     h2_xen_dev_t_console  ,
     h2_xen_dev_t_vif      ,
 };
 typedef enum h2_xen_dev_t h2_xen_dev_t;
-
-struct h2_xen_dev_xenstore {
-    evtchn_port_t evtchn;
-    unsigned long mfn;
-};
-typedef struct h2_xen_dev_xenstore h2_xen_dev_xenstore;
 
 struct h2_xen_dev_console {
     domid_t backend_id;
@@ -104,7 +97,6 @@ typedef struct h2_xen_dev_vif h2_xen_dev_vif;
 struct h2_xen_dev {
     h2_xen_dev_t type;
     union {
-        h2_xen_dev_xenstore xenstore;
         h2_xen_dev_console console;
         h2_xen_dev_vif vif;
     } dev;
@@ -113,7 +105,10 @@ typedef struct h2_xen_dev h2_xen_dev;
 
 
 struct h2_xen_guest {
-    char* xs_dom_path;
+    struct {
+        bool active;
+        char* dom_path;
+    } xs;
 
     h2_xen_dev devs[H2_XEN_DEV_COUNT_MAX];
 };

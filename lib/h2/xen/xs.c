@@ -82,49 +82,6 @@ static int __read_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key
     return ret;
 }
 
-static int __enumerate_xenstore(h2_xen_ctx* ctx, h2_guest* guest)
-{
-    int ret;
-
-    char* dom_path;
-    char* xs_val;
-    unsigned int xs_val_len;
-    int idx;
-    h2_xen_dev* dev;
-
-
-    ret = 0;
-    dom_path = guest->hyp.info.xen->xs_dom_path;
-
-    /* Check if the domain has xenstore by reading domain path. The value read
-     * is not important, is discarded immediately.
-     */
-    xs_val = xs_read(ctx->xs.xsh, XBT_NULL, dom_path, &xs_val_len);
-    if (xs_val == NULL) {
-        free(xs_val);
-        ret = EINVAL;
-        goto out;
-    }
-    free(xs_val);
-
-    /* Domain has a xenstore so lets add that device to the list. */
-
-    idx = 0;
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
-    if (!dev) {
-        ret = ENOMEM;
-        goto out;
-    }
-
-    dev->type = h2_xen_dev_t_xenstore;
-    /* There's no way to retrieve these. */
-    dev->dev.xenstore.evtchn = 0;
-    dev->dev.xenstore.mfn = 0;
-
-out:
-    return ret;
-}
-
 static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -136,7 +93,7 @@ static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
 
 
     ret = 0;
-    dom_path = guest->hyp.info.xen->xs_dom_path;
+    dom_path = guest->hyp.info.xen->xs.dom_path;
 
     /* Check if the domain has xenstore by reading console path. The value read
      * is not important, is discarded immediately.
@@ -183,7 +140,7 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
     h2_xen_dev* dev;
 
     ret = 0;
-    asprintf(&fe_path, "%s/device/%s", guest->hyp.info.xen->xs_dom_path, "vif");
+    asprintf(&fe_path, "%s/device/%s", guest->hyp.info.xen->xs.dom_path, "vif");
 
     xs_list = xs_directory(ctx->xs.xsh, XBT_NULL, fe_path, &xs_list_num);
     if (xs_list == NULL) {
@@ -317,7 +274,7 @@ th_end:
         }
     }
 
-    guest->hyp.info.xen->xs_dom_path = dom_path;
+    guest->hyp.info.xen->xs.dom_path = dom_path;
 
     free(domid_str);
     free(data_path);
@@ -328,31 +285,67 @@ th_end:
 
 int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    if (!xs_rm(ctx->xs.xsh, XBT_NULL, guest->hyp.info.xen->xs_dom_path)) {
+    if (!xs_rm(ctx->xs.xsh, XBT_NULL, guest->hyp.info.xen->xs.dom_path)) {
         return errno;
     }
 
     return 0;
 }
 
-int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_xenstore* xenstore)
+int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
+        evtchn_port_t evtchn, unsigned int mfn)
 {
-    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, xenstore->mfn, xenstore->evtchn)) {
+    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, mfn, evtchn)) {
         return errno;
     }
 
     return 0;
+}
+
+int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    char* dom_path;
+    char* xs_val;
+    unsigned int xs_val_len;
+
+    if (guest->hyp.info.xen->xs.dom_path) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
+    if (!dom_path) {
+        ret = errno;
+        goto out_err;
+    }
+
+    /* Check if the domain has xenstore by reading domain path. The value read
+     * is not important, is discarded immediately.
+     */
+    xs_val = xs_read(ctx->xs.xsh, XBT_NULL, dom_path, &xs_val_len);
+    if (xs_val == NULL) {
+        guest->hyp.info.xen->xs.active = false;
+        free(dom_path);
+    } else {
+        guest->hyp.info.xen->xs.active = true;
+        guest->hyp.info.xen->xs.dom_path = dom_path;
+        free(xs_val);
+    }
+
+    return 0;
+
+out_err:
+    return ret;
 }
 
 int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    ret = __enumerate_xenstore(ctx, guest);
-    if (ret) {
-        if (ret == EINVAL) {
-            ret = 0;
-        }
+    if (!guest->hyp.info.xen->xs.active) {
+        ret = EINVAL;
         goto out;
     }
 
@@ -387,7 +380,7 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
     dom_rw[0].id = guest->id;
     dom_rw[0].perms = XS_PERM_NONE;
 
-    dom_path = guest->hyp.info.xen->xs_dom_path;
+    dom_path = guest->hyp.info.xen->xs.dom_path;
 
     asprintf(&console_path, "%s/console", dom_path);
     asprintf(&mfn_val, "%lu", console->mfn);
@@ -471,7 +464,7 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     asprintf(&dev_id_str, "%d", vif->id);
 
-    fe_dom_path = guest->hyp.info.xen->xs_dom_path;
+    fe_dom_path = guest->hyp.info.xen->xs.dom_path;
     asprintf(&fe_path, "%s/device/%s/%s", fe_dom_path, "vif", dev_id_str);
     asprintf(&fe_id_str, "%u", (domid_t) guest->id);
 
@@ -627,7 +620,7 @@ int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     char* be_dev_path;
 
 
-    asprintf(&fe_dev_path, "%s/device/%s/%d", guest->hyp.info.xen->xs_dom_path, "vif", vif->id);
+    asprintf(&fe_dev_path, "%s/device/%s/%d", guest->hyp.info.xen->xs.dom_path, "vif", vif->id);
 
     ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
     if (ret) {

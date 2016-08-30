@@ -126,7 +126,8 @@ out_err:
 }
 
 int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
-        h2_xen_dev_xenstore* xenstore, h2_xen_dev_console* console)
+        bool xs_active, domid_t xs_domid, evtchn_port_t xs_evtchn, unsigned int* xs_mfn,
+        h2_xen_dev_console* console)
 {
     int ret;
 
@@ -138,9 +139,9 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
         goto out_err;
     }
 
-    if (xenstore != NULL) {
-        dom->xenstore_domid = ctx->xs.domid;
-        dom->xenstore_evtchn = xenstore->evtchn;
+    if (xs_active) {
+        dom->xenstore_domid = xs_domid;
+        dom->xenstore_evtchn = xs_evtchn;
     }
 
     if (console != NULL) {
@@ -213,8 +214,8 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
         goto out_dom;
     }
 
-    if (xenstore != NULL) {
-        xenstore->mfn = xc_dom_p2m(dom, dom->xenstore_pfn);
+    if (xs_active) {
+        (*xs_mfn) = xc_dom_p2m(dom, dom->xenstore_pfn);
     }
 
     if (console != NULL) {

@@ -45,9 +45,6 @@ void h2_xen_dev_free(h2_xen_dev* dev)
         case h2_xen_dev_t_none:
             break;
 
-        case h2_xen_dev_t_xenstore:
-            break;
-
         case h2_xen_dev_t_console:
             break;
 
@@ -83,7 +80,19 @@ h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
 
 int h2_xen_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    return h2_xen_xs_dev_enumerate(ctx, guest);
+    int ret;
+
+    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+        ret = h2_xen_xs_dev_enumerate(ctx, guest);
+        if (ret) {
+            goto out_err;
+        }
+    }
+
+    return 0;
+
+out_err:
+    return ret;
 }
 
 int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
@@ -93,9 +102,6 @@ int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
     ret = 0;
     switch (dev->type) {
         case h2_xen_dev_t_none:
-            break;
-
-        case h2_xen_dev_t_xenstore:
             break;
 
         case h2_xen_dev_t_console:
@@ -117,9 +123,6 @@ int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
     ret = 0;
     switch (dev->type) {
         case h2_xen_dev_t_none:
-            break;
-
-        case h2_xen_dev_t_xenstore:
             break;
 
         case h2_xen_dev_t_console:

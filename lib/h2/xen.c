@@ -145,9 +145,9 @@ void h2_xen_guest_free(h2_xen_guest** guest)
         return;
     }
 
-    if ((*guest)->xs_dom_path) {
-        free((*guest)->xs_dom_path);
-        (*guest)->xs_dom_path = NULL;
+    if ((*guest)->xs.dom_path) {
+        free((*guest)->xs.dom_path);
+        (*guest)->xs.dom_path = NULL;
     }
 
     for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
@@ -163,26 +163,30 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
+    bool xs_active;
+    unsigned int xs_mfn;
+    evtchn_port_t xs_evtchn;
+
     h2_xen_dev* dev;
-    h2_xen_dev_xenstore* xenstore;
     h2_xen_dev_console* console;
     xc_evtchn_port_or_error_t ec_ret;
+
+
+    xs_evtchn = 0;
+    xs_active = ctx->xs.active && guest->hyp.info.xen->xs.active;
 
     ret = h2_xen_xc_domain_create(ctx, guest);
     if (ret) {
         goto out_err;
     }
 
-    xenstore = NULL;
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_xenstore, NULL);
-    if (dev != NULL) {
-        xenstore = &(dev->dev.xenstore);
+    if (xs_active) {
         ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, ctx->xs.domid);
         if (ec_ret == -1) {
             ret = errno;
             goto out_dom;
         }
-        xenstore->evtchn = ec_ret;
+        xs_evtchn = ec_ret;
     }
 
     console = NULL;
@@ -197,20 +201,24 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         console->evtchn = ec_ret;
     }
 
-    ret = h2_xen_xc_domain_init(ctx, guest, xenstore, console);
+    ret = h2_xen_xc_domain_init(ctx, guest, xs_active, ctx->xs.domid, xs_evtchn, &xs_mfn, console);
     if (ret) {
         goto out_dom;
     }
 
-    ret = h2_xen_xs_domain_create(ctx, guest);
-    if (ret) {
-        goto out_dom;
+    if (xs_active) {
+        ret = h2_xen_xs_domain_create(ctx, guest);
+        if (ret) {
+            goto out_dom;
+        }
     }
 
     if (console != NULL) {
-        ret = h2_xen_xs_console_create(ctx, guest, console);
-        if (ret) {
-            goto out_xs;
+        if (xs_active) {
+            ret = h2_xen_xs_console_create(ctx, guest, console);
+            if (ret) {
+                goto out_xs;
+            }
         }
     }
 
@@ -222,8 +230,8 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_dev;
     }
 
-    if (xenstore != NULL) {
-        ret = h2_xen_xs_domain_intro(ctx, guest, xenstore);
+    if (xs_active) {
+        ret = h2_xen_xs_domain_intro(ctx, guest, xs_evtchn, xs_mfn);
         if (ret) {
             goto out_xs;
         }
@@ -242,7 +250,9 @@ out_dev:
     }
 
 out_xs:
-    h2_xen_xs_domain_destroy(ctx, guest);
+    if (xs_active) {
+        h2_xen_xs_domain_destroy(ctx, guest);
+    }
 
 out_dom:
     h2_xen_xc_domain_destroy(ctx, guest);
@@ -256,6 +266,8 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     int ret;
     int _ret;
 
+    bool xs_active;
+
     h2_guest* guest;
 
     ret = h2_guest_alloc(&guest, h2_hyp_t_xen);
@@ -264,7 +276,16 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     }
 
     guest->id = id;
-    guest->hyp.info.xen->xs_dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
+
+    if (ctx->xs.active) {
+        ret = h2_xen_xs_probe_guest(ctx, guest);
+        if (ret) {
+            goto out;
+        }
+        xs_active = guest->hyp.info.xen->xs.active;
+    } else {
+        xs_active = false;
+    }
 
     ret = h2_xen_dev_enumerate(ctx, guest);
     if (ret) {
@@ -279,9 +300,11 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
         }
     }
 
-    _ret = h2_xen_xs_domain_destroy(ctx, guest);
-    if (_ret && !ret) {
-        ret = _ret;
+    if (xs_active) {
+        _ret = h2_xen_xs_domain_destroy(ctx, guest);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
     }
 
     _ret = h2_xen_xc_domain_destroy(ctx, guest);
