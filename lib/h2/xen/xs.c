@@ -49,9 +49,9 @@ static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* ke
     int ret;
     char* fpath;
 
+    ret = 0;
     asprintf(&fpath, "%s/%s", path, key);
 
-    ret = 0;
     if (!xs_write(ctx->xsh, th, fpath, value, strlen(value))) {
         ret = errno;
     }
