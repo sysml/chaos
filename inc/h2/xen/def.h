@@ -65,7 +65,6 @@ enum h2_xen_dev_t {
 typedef enum h2_xen_dev_t h2_xen_dev_t;
 
 struct h2_xen_dev_xenstore {
-    domid_t backend_id;
     evtchn_port_t evtchn;
     unsigned long mfn;
 };

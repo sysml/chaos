@@ -178,7 +178,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_xenstore, &idx);
     if (dev != NULL) {
         xenstore = &(dev->dev.xenstore);
-        ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, xenstore->backend_id);
+        ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, ctx->xs_domid);
         if (ec_ret == -1) {
             ret = errno;
             goto out_dom;
