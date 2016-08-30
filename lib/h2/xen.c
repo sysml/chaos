@@ -269,8 +269,11 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     guest->id = id;
     guest->hyp.info.xen->xs_dom_path = xs_get_domain_path(ctx->xsh, guest->id);
 
+    ret = h2_xen_dev_enumerate(ctx, guest);
+    if (ret) {
+        goto out;
+    }
 
-    /* FIXME: Need to enumerate devices, so that they're destroyed */
 
     for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
         _ret = h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
