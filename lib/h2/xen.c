@@ -68,6 +68,9 @@ int h2_xen_open(h2_xen_ctx** ctx)
         goto out_xtl;
     }
 
+    /* FIXME: Assuming xenstore runs on Dom0, make this configurable. */
+    (*ctx)->xs_domid = 0;
+
     (*ctx)->xsh = xs_open(0);
     if ((*ctx)->xsh == NULL) {
         ret = errno;

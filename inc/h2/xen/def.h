@@ -46,6 +46,7 @@
 
 
 struct h2_xen_ctx {
+    domid_t xs_domid;
     struct xs_handle* xsh;
 
     xc_interface* xci;
