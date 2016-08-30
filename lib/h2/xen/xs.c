@@ -54,7 +54,7 @@ static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* ke
     ret = 0;
     asprintf(&fpath, "%s/%s", path, key);
 
-    if (!xs_write(ctx->xsh, th, fpath, value, strlen(value))) {
+    if (!xs_write(ctx->xs.xsh, th, fpath, value, strlen(value))) {
         ret = errno;
     }
 
@@ -72,7 +72,7 @@ static int __read_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key
     ret = 0;
     asprintf(&fpath, "%s/%s", path, key);
 
-    (*value) = xs_read(ctx->xsh, th, fpath, &len);
+    (*value) = xs_read(ctx->xs.xsh, th, fpath, &len);
     if ((*value)) {
         ret = errno;
     }
@@ -99,7 +99,7 @@ static int __enumerate_xenstore(h2_xen_ctx* ctx, h2_guest* guest)
     /* Check if the domain has xenstore by reading domain path. The value read
      * is not important, is discarded immediately.
      */
-    xs_val = xs_read(ctx->xsh, XBT_NULL, dom_path, &xs_val_len);
+    xs_val = xs_read(ctx->xs.xsh, XBT_NULL, dom_path, &xs_val_len);
     if (xs_val == NULL) {
         free(xs_val);
         ret = EINVAL;
@@ -185,7 +185,7 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
     ret = 0;
     asprintf(&fe_path, "%s/device/%s", guest->hyp.info.xen->xs_dom_path, "vif");
 
-    xs_list = xs_directory(ctx->xsh, XBT_NULL, fe_path, &xs_list_num);
+    xs_list = xs_directory(ctx->xs.xsh, XBT_NULL, fe_path, &xs_list_num);
     if (xs_list == NULL) {
         /* List is empty. */
         goto out_path;
@@ -257,7 +257,7 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dom_ro[1].id = guest->id;
     dom_ro[1].perms = XS_PERM_READ;
 
-    dom_path = xs_get_domain_path(ctx->xsh, guest->id);
+    dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
 
     asprintf(&domid_str, "%u", (unsigned int) guest->id);
     asprintf(&data_path, "%s/data", dom_path);
@@ -265,31 +265,31 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
 th_start:
     ret = 0;
-    th = xs_transaction_start(ctx->xsh);
+    th = xs_transaction_start(ctx->xs.xsh);
 
-    if (!xs_mkdir(ctx->xsh, th, dom_path)) {
+    if (!xs_mkdir(ctx->xs.xsh, th, dom_path)) {
         ret = errno;
         goto th_end;
     }
-    if (!xs_set_permissions(ctx->xsh, th, dom_path, dom_ro, 2)) {
-        ret = errno;
-        goto th_end;
-    }
-
-    if (!xs_mkdir(ctx->xsh, th, data_path)) {
-        ret = errno;
-        goto th_end;
-    }
-    if (!xs_set_permissions(ctx->xsh, th, data_path, dom_rw, 1)) {
+    if (!xs_set_permissions(ctx->xs.xsh, th, dom_path, dom_ro, 2)) {
         ret = errno;
         goto th_end;
     }
 
-    if (!xs_mkdir(ctx->xsh, th, shutdown_path)) {
+    if (!xs_mkdir(ctx->xs.xsh, th, data_path)) {
         ret = errno;
         goto th_end;
     }
-    if (!xs_set_permissions(ctx->xsh, th, shutdown_path, dom_rw, 1)) {
+    if (!xs_set_permissions(ctx->xs.xsh, th, data_path, dom_rw, 1)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_mkdir(ctx->xs.xsh, th, shutdown_path)) {
+        ret = errno;
+        goto th_end;
+    }
+    if (!xs_set_permissions(ctx->xs.xsh, th, shutdown_path, dom_rw, 1)) {
         ret = errno;
         goto th_end;
     }
@@ -306,9 +306,9 @@ th_start:
 
 th_end:
     if (ret) {
-        xs_transaction_end(ctx->xsh, th, true);
+        xs_transaction_end(ctx->xs.xsh, th, true);
     } else {
-        if (!xs_transaction_end(ctx->xsh, th, false)) {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
             if (errno == EAGAIN) {
                 goto th_start;
             } else {
@@ -328,7 +328,7 @@ th_end:
 
 int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    if (!xs_rm(ctx->xsh, XBT_NULL, guest->hyp.info.xen->xs_dom_path)) {
+    if (!xs_rm(ctx->xs.xsh, XBT_NULL, guest->hyp.info.xen->xs_dom_path)) {
         return errno;
     }
 
@@ -337,7 +337,7 @@ int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_xenstore* xenstore)
 {
-    if (!xs_introduce_domain(ctx->xsh, guest->id, xenstore->mfn, xenstore->evtchn)) {
+    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, xenstore->mfn, xenstore->evtchn)) {
         return errno;
     }
 
@@ -396,13 +396,13 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
 
 th_start:
     ret = 0;
-    th = xs_transaction_start(ctx->xsh);
+    th = xs_transaction_start(ctx->xs.xsh);
 
-    if (!xs_mkdir(ctx->xsh, th, console_path)) {
+    if (!xs_mkdir(ctx->xs.xsh, th, console_path)) {
         ret = errno;
         goto th_end;
     }
-    if (!xs_set_permissions(ctx->xsh, th, console_path, dom_rw, 1)) {
+    if (!xs_set_permissions(ctx->xs.xsh, th, console_path, dom_rw, 1)) {
         ret = errno;
         goto th_end;
     }
@@ -424,9 +424,9 @@ th_start:
 
 th_end:
     if (ret) {
-        xs_transaction_end(ctx->xsh, th, true);
+        xs_transaction_end(ctx->xs.xsh, th, true);
     } else {
-        if (!xs_transaction_end(ctx->xsh, th, false)) {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
             if (errno == EAGAIN) {
                 goto th_start;
             } else {
@@ -475,21 +475,21 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     asprintf(&fe_path, "%s/device/%s/%s", fe_dom_path, "vif", dev_id_str);
     asprintf(&fe_id_str, "%u", (domid_t) guest->id);
 
-    be_dom_path = xs_get_domain_path(ctx->xsh, vif->backend_id);
+    be_dom_path = xs_get_domain_path(ctx->xs.xsh, vif->backend_id);
     asprintf(&be_path, "%s/backend/%s/%u/%d", be_dom_path, "vif", (domid_t) guest->id, vif->id);
     asprintf(&be_id_str, "%d", vif->backend_id);
 
 
 th_start:
     ret = 0;
-    th = xs_transaction_start(ctx->xsh);
+    th = xs_transaction_start(ctx->xs.xsh);
 
-    if (!xs_mkdir(ctx->xsh, th, fe_path)) {
+    if (!xs_mkdir(ctx->xs.xsh, th, fe_path)) {
         ret = errno;
         goto th_end;
     }
 
-    if (!xs_set_permissions(ctx->xsh, th, fe_path, fe_perms, 2)) {
+    if (!xs_set_permissions(ctx->xs.xsh, th, fe_path, fe_perms, 2)) {
         ret = errno;
         goto th_end;
     }
@@ -521,12 +521,12 @@ th_start:
         }
     }
 
-    if (!xs_mkdir(ctx->xsh, th, be_path)) {
+    if (!xs_mkdir(ctx->xs.xsh, th, be_path)) {
         ret = errno;
         goto th_end;
     }
 
-    if (!xs_set_permissions(ctx->xsh, th, be_path, be_perms, 2)) {
+    if (!xs_set_permissions(ctx->xs.xsh, th, be_path, be_perms, 2)) {
         ret = errno;
         goto th_end;
     }
@@ -596,9 +596,9 @@ th_start:
 
 th_end:
     if (ret) {
-        xs_transaction_end(ctx->xsh, th, true);
+        xs_transaction_end(ctx->xs.xsh, th, true);
     } else {
-        if (!xs_transaction_end(ctx->xsh, th, false)) {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
             if (errno == EAGAIN) {
                 goto th_start;
             } else {
@@ -637,23 +637,23 @@ int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
 th_start:
     ret = 0;
-    th = xs_transaction_start(ctx->xsh);
+    th = xs_transaction_start(ctx->xs.xsh);
 
-    if (!xs_rm(ctx->xsh, th, fe_dev_path)) {
+    if (!xs_rm(ctx->xs.xsh, th, fe_dev_path)) {
         ret = errno;
         goto th_end;
     }
 
-    if (!xs_rm(ctx->xsh, th, be_dev_path)) {
+    if (!xs_rm(ctx->xs.xsh, th, be_dev_path)) {
         ret = errno;
         goto th_end;
     }
 
 th_end:
     if (ret) {
-        xs_transaction_end(ctx->xsh, th, true);
+        xs_transaction_end(ctx->xs.xsh, th, true);
     } else {
-        if (!xs_transaction_end(ctx->xsh, th, false)) {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
             if (errno == EAGAIN) {
                 goto th_start;
             } else {

@@ -139,7 +139,7 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
     }
 
     if (xenstore != NULL) {
-        dom->xenstore_domid = ctx->xs_domid;
+        dom->xenstore_domid = ctx->xs.domid;
         dom->xenstore_evtchn = xenstore->evtchn;
     }
 

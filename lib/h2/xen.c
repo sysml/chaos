@@ -69,11 +69,11 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
     }
 
     if (cfg->xs.active) {
-        (*ctx)->xs_active = true;
-        (*ctx)->xs_domid = cfg->xs.domid;
+        (*ctx)->xs.active = true;
+        (*ctx)->xs.domid = cfg->xs.domid;
 
-        (*ctx)->xsh = xs_open(0);
-        if ((*ctx)->xsh == NULL) {
+        (*ctx)->xs.xsh = xs_open(0);
+        if ((*ctx)->xs.xsh == NULL) {
             ret = errno;
             goto out_xci;
         }
@@ -101,8 +101,8 @@ void h2_xen_close(h2_xen_ctx** ctx)
         return;
     }
 
-    if ((*ctx)->xs_active && (*ctx)->xsh) {
-        xs_close((*ctx)->xsh);
+    if ((*ctx)->xs.active && (*ctx)->xs.xsh) {
+        xs_close((*ctx)->xs.xsh);
     }
 
     if ((*ctx)->xci) {
@@ -180,7 +180,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_xenstore, &idx);
     if (dev != NULL) {
         xenstore = &(dev->dev.xenstore);
-        ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, ctx->xs_domid);
+        ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, ctx->xs.domid);
         if (ec_ret == -1) {
             ret = errno;
             goto out_dom;
@@ -269,7 +269,7 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     }
 
     guest->id = id;
-    guest->hyp.info.xen->xs_dom_path = xs_get_domain_path(ctx->xsh, guest->id);
+    guest->hyp.info.xen->xs_dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
 
     ret = h2_xen_dev_enumerate(ctx, guest);
     if (ret) {

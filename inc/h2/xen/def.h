@@ -54,9 +54,11 @@ struct h2_xen_cfg {
 typedef struct h2_xen_cfg h2_xen_cfg;
 
 struct h2_xen_ctx {
-    bool xs_active;
-    domid_t xs_domid;
-    struct xs_handle* xsh;
+    struct {
+        bool active;
+        domid_t domid;
+        struct xs_handle* xsh;
+    } xs;
 
     xc_interface* xci;
     xentoollog_logger *xtl;
