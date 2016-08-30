@@ -35,6 +35,7 @@
  */
 
 #include <h2/xen/dev.h>
+#include <h2/xen/vif.h>
 #include <h2/xen/xs.h>
 
 
@@ -48,6 +49,10 @@ void h2_xen_dev_free(h2_xen_dev* dev)
             break;
 
         case h2_xen_dev_t_console:
+            break;
+
+        case h2_xen_dev_t_vif:
+            h2_xen_vif_free(&(dev->dev.vif));
             break;
     }
 
@@ -87,6 +92,10 @@ int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
         case h2_xen_dev_t_console:
             /* FIXME: Support adding more than one console. */
             break;
+
+        case h2_xen_dev_t_vif:
+            ret = h2_xen_vif_create(ctx, guest, &(dev->dev.vif));
+            break;
     }
 
     return ret;
@@ -106,6 +115,10 @@ int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
 
         case h2_xen_dev_t_console:
             /* FIXME: Support adding more than one console. */
+            break;
+
+        case h2_xen_dev_t_vif:
+            ret = h2_xen_vif_destroy(ctx, guest, &(dev->dev.vif));
             break;
     }
 

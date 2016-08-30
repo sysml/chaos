@@ -34,21 +34,74 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#ifndef __H2__XEN__XS__H__
-#define __H2__XEN__XS__H__
-
-#include <h2/h2.h>
+#include <h2/xen/vif.h>
+#include <h2/xen/xs.h>
 
 
-int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_xenstore* xenstore);
+void h2_xen_vif_free(h2_xen_dev_vif* vif)
+{
+    if (vif->ip) {
+        free(vif->ip);
+        vif->ip = NULL;
+    }
 
-int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
+    if (vif->mac) {
+        free(vif->mac);
+        vif->mac = NULL;
+    }
 
-int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
+    if (vif->bridge) {
+        free(vif->bridge);
+        vif->bridge = NULL;
+    }
 
-int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
-int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
+    if (vif->script) {
+        free(vif->script);
+        vif->script = NULL;
+    }
+}
 
-#endif /* __H2__XEN__XS__H__ */
+
+int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
+{
+    int ret;
+
+    if (vif->valid) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ret = h2_xen_xs_vif_create(ctx, guest, vif);
+    if (ret) {
+        goto out_err;
+    }
+
+    vif->valid = true;
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
+int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
+{
+    int ret;
+
+    if (!vif->valid) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ret = h2_xen_xs_vif_destroy(ctx, guest, vif);
+    if (ret) {
+        goto out_err;
+    }
+
+    vif->valid = false;
+
+    return 0;
+
+out_err:
+    return ret;
+}

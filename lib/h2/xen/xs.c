@@ -169,6 +169,72 @@ out:
     return ret;
 }
 
+static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    char** xs_list;
+    unsigned int xs_list_num;
+
+    char* fe_dev_path;
+    char* fe_path;
+
+    int idx;
+    h2_xen_dev* dev;
+
+    ret = 0;
+    asprintf(&fe_path, "%s/device/%s", guest->hyp.info.xen->xs_dom_path, "vif");
+
+    xs_list = xs_directory(ctx->xsh, XBT_NULL, fe_path, &xs_list_num);
+    if (xs_list == NULL) {
+        /* List is empty. */
+        goto out_path;
+    }
+
+    idx = 0;
+    for (int i = 0; i < xs_list_num; i++) {
+        char* be_id_str;
+
+        dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
+        if (!dev) {
+            ret = ENOMEM;
+            break;
+        }
+
+        asprintf(&fe_dev_path, "%s/%s", fe_path, xs_list[i]);
+
+        ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend-id", &be_id_str);
+        if (ret) {
+            free(fe_dev_path);
+            continue;
+        }
+
+        dev->type = h2_xen_dev_t_vif;
+        dev->dev.vif.id = atoi(xs_list[i]);
+        dev->dev.vif.valid = true;
+        dev->dev.vif.backend_id = atoi(be_id_str);
+        dev->dev.vif.ip = NULL;
+        dev->dev.vif.mac = NULL;
+        dev->dev.vif.bridge = NULL;
+        dev->dev.vif.script = NULL;
+
+        free(be_id_str);
+        free(fe_dev_path);
+
+    }
+    if (ret) {
+        goto out_xs_list;
+    }
+
+out_xs_list:
+    free(xs_list);
+
+out_path:
+    free(fe_path);
+
+    return ret;
+}
+
 int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -295,6 +361,11 @@ int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
         goto out;
     }
 
+    ret = __enumerate_vif(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
 out:
     return ret;
 }
@@ -367,6 +438,235 @@ th_end:
     free(console_path);
     free(mfn_val);
     free(evtchn_val);
+
+    return ret;
+}
+
+int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
+{
+    int ret;
+
+    xs_transaction_t th;
+
+    char* dev_id_str;
+    char* fe_dom_path;
+    char* fe_path;
+    char* fe_id_str;
+    char* be_dom_path;
+    char* be_path;
+    char* be_id_str;
+
+    struct xs_permissions fe_perms[2];
+    struct xs_permissions be_perms[2];
+
+    fe_perms[0].id = guest->id;
+    fe_perms[0].perms = XS_PERM_NONE;
+    fe_perms[1].id = vif->backend_id;
+    fe_perms[1].perms = XS_PERM_READ;
+
+    be_perms[0].id = vif->backend_id;
+    be_perms[0].perms = XS_PERM_NONE;
+    be_perms[1].id = guest->id;
+    be_perms[1].perms = XS_PERM_READ;
+
+    asprintf(&dev_id_str, "%d", vif->id);
+
+    fe_dom_path = guest->hyp.info.xen->xs_dom_path;
+    asprintf(&fe_path, "%s/device/%s/%s", fe_dom_path, "vif", dev_id_str);
+    asprintf(&fe_id_str, "%u", (domid_t) guest->id);
+
+    be_dom_path = xs_get_domain_path(ctx->xsh, vif->backend_id);
+    asprintf(&be_path, "%s/backend/%s/%u/%d", be_dom_path, "vif", (domid_t) guest->id, vif->id);
+    asprintf(&be_id_str, "%d", vif->backend_id);
+
+
+th_start:
+    ret = 0;
+    th = xs_transaction_start(ctx->xsh);
+
+    if (!xs_mkdir(ctx->xsh, th, fe_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_set_permissions(ctx->xsh, th, fe_path, fe_perms, 2)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "backend", be_path);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "backend-id", be_id_str);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "state", "1");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "handle", dev_id_str);
+    if (ret) {
+        goto th_end;
+    }
+
+    if (vif->mac) {
+        ret = __write_kv(ctx, th, fe_path, "mac", vif->mac);
+        if (ret) {
+            goto th_end;
+        }
+    }
+
+    if (!xs_mkdir(ctx->xsh, th, be_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_set_permissions(ctx->xsh, th, be_path, be_perms, 2)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "frontend", fe_path);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "frontend-id", fe_id_str);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "online", "1");
+    if (ret) {
+        goto th_end;
+    }
+
+    if (vif->bridge) {
+        ret = __write_kv(ctx, th, be_path, "bridge", vif->bridge);
+        if (ret) {
+            goto th_end;
+        }
+    }
+
+    if (vif->ip) {
+        ret = __write_kv(ctx, th, be_path, "ip", vif->ip);
+        if (ret) {
+            goto th_end;
+        }
+    }
+
+    ret = __write_kv(ctx, th, be_path, "handle", dev_id_str);
+    if (ret) {
+        goto th_end;
+    }
+
+    if (vif->mac) {
+        ret = __write_kv(ctx, th, be_path, "mac", vif->mac);
+        if (ret) {
+            goto th_end;
+        }
+    }
+
+    ret = __write_kv(ctx, th, be_path, "state", "1");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "type", "vif");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "hotplug-status", "");
+    if (ret) {
+        goto th_end;
+    }
+
+    if (vif->script) {
+        ret = __write_kv(ctx, th, be_path, "script", vif->script);
+        if (ret) {
+            goto th_end;
+        }
+    }
+
+th_end:
+    if (ret) {
+        xs_transaction_end(ctx->xsh, th, true);
+    } else {
+        if (!xs_transaction_end(ctx->xsh, th, false)) {
+            if (errno == EAGAIN) {
+                goto th_start;
+            } else {
+                ret = errno;
+            }
+        }
+    }
+
+    free(dev_id_str);
+    free(fe_path);
+    free(fe_id_str);
+    free(be_dom_path);
+    free(be_path);
+    free(be_id_str);
+
+    return ret;
+}
+
+int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
+{
+    int ret;
+
+    xs_transaction_t th;
+
+    char* fe_dev_path;
+    char* be_dev_path;
+
+
+    asprintf(&fe_dev_path, "%s/device/%s/%d", guest->hyp.info.xen->xs_dom_path, "vif", vif->id);
+
+    ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
+    if (ret) {
+        goto out_fe;
+    }
+
+
+th_start:
+    ret = 0;
+    th = xs_transaction_start(ctx->xsh);
+
+    if (!xs_rm(ctx->xsh, th, fe_dev_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_rm(ctx->xsh, th, be_dev_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+th_end:
+    if (ret) {
+        xs_transaction_end(ctx->xsh, th, true);
+    } else {
+        if (!xs_transaction_end(ctx->xsh, th, false)) {
+            if (errno == EAGAIN) {
+                goto th_start;
+            } else {
+                ret = errno;
+            }
+        }
+    }
+
+
+    free(be_dev_path);
+
+out_fe:
+    free(fe_dev_path);
 
     return ret;
 }

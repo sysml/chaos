@@ -34,21 +34,16 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#ifndef __H2__XEN__XS__H__
-#define __H2__XEN__XS__H__
+#ifndef __H2__XEN__VIF__H__
+#define __H2__XEN__VIF__H__
 
 #include <h2/h2.h>
 
 
-int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_xenstore* xenstore);
+void h2_xen_vif_free(h2_xen_dev_vif* vif);
 
-int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
-int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
+int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
+int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
 
-int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
-int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
-
-#endif /* __H2__XEN__XS__H__ */
+#endif /* __H2__XEN__VIF__H__ */
