@@ -44,6 +44,8 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_xenstore* xenstore);
 
+int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
+
 int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
 
 #endif /* __H2__XEN__XS__H__ */

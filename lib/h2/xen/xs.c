@@ -35,11 +35,13 @@
  */
 
 #include <h2/xen/xs.h>
+#include <h2/xen/dev.h>
 
 #define _GNU_SOURCE
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <xenstore.h>
 
@@ -77,6 +79,93 @@ static int __read_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key
 
     free(fpath);
 
+    return ret;
+}
+
+static int __enumerate_xenstore(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    char* dom_path;
+    char* xs_val;
+    unsigned int xs_val_len;
+    int idx;
+    h2_xen_dev* dev;
+
+
+    ret = 0;
+    dom_path = guest->hyp.info.xen->xs_dom_path;
+
+    /* Check if the domain has xenstore by reading domain path. The value read
+     * is not important, is discarded immediately.
+     */
+    xs_val = xs_read(ctx->xsh, XBT_NULL, dom_path, &xs_val_len);
+    if (xs_val == NULL) {
+        free(xs_val);
+        ret = EINVAL;
+        goto out;
+    }
+    free(xs_val);
+
+    /* Domain has a xenstore so lets add that device to the list. */
+
+    idx = 0;
+    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
+    if (!dev) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+    dev->type = h2_xen_dev_t_xenstore;
+    /* There's no way to retrieve these. */
+    dev->dev.xenstore.evtchn = 0;
+    dev->dev.xenstore.mfn = 0;
+
+out:
+    return ret;
+}
+
+static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    char* dom_path;
+    char* xs_val;
+    int idx;
+    h2_xen_dev* dev;
+
+
+    ret = 0;
+    dom_path = guest->hyp.info.xen->xs_dom_path;
+
+    /* Check if the domain has xenstore by reading console path. The value read
+     * is not important, is discarded immediately.
+     */
+    ret = __read_kv(ctx, XBT_NULL, dom_path, "console", &xs_val);
+    if (ret) {
+        /* Not having a console is not an error. */
+        ret = 0;
+        goto out;
+    }
+    free(xs_val);
+
+    /* Domain has a console so lets add that device to the list. */
+
+    idx = 0;
+    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
+    if (!dev) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+    dev->type = h2_xen_dev_t_console;
+
+    /* FIXME: Need to retrieve these */
+    dev->dev.console.backend_id = 0;
+    dev->dev.console.evtchn = 0;
+    dev->dev.console.mfn = 0;
+
+out:
     return ret;
 }
 
@@ -187,6 +276,27 @@ int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_xenstore
     }
 
     return 0;
+}
+
+int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    ret = __enumerate_xenstore(ctx, guest);
+    if (ret) {
+        if (ret == EINVAL) {
+            ret = 0;
+        }
+        goto out;
+    }
+
+    ret = __enumerate_console(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
+out:
+    return ret;
 }
 
 int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)

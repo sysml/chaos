@@ -35,6 +35,7 @@
  */
 
 #include <h2/xen/dev.h>
+#include <h2/xen/xs.h>
 
 
 void h2_xen_dev_free(h2_xen_dev* dev)
@@ -65,6 +66,11 @@ h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
     return NULL;
 }
 
+
+int h2_xen_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return h2_xen_xs_dev_enumerate(ctx, guest);
+}
 
 int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
 {
