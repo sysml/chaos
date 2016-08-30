@@ -46,10 +46,15 @@
 
 
 struct h2_xen_cfg {
+    struct {
+        bool active;
+        domid_t domid;
+    } xs;
 };
 typedef struct h2_xen_cfg h2_xen_cfg;
 
 struct h2_xen_ctx {
+    bool xs_active;
     domid_t xs_domid;
     struct xs_handle* xsh;
 

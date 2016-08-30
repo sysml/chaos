@@ -68,13 +68,15 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
         goto out_xtl;
     }
 
-    /* FIXME: Assuming xenstore runs on Dom0, make this configurable. */
-    (*ctx)->xs_domid = 0;
+    if (cfg->xs.active) {
+        (*ctx)->xs_active = true;
+        (*ctx)->xs_domid = cfg->xs.domid;
 
-    (*ctx)->xsh = xs_open(0);
-    if ((*ctx)->xsh == NULL) {
-        ret = errno;
-        goto out_xci;
+        (*ctx)->xsh = xs_open(0);
+        if ((*ctx)->xsh == NULL) {
+            ret = errno;
+            goto out_xci;
+        }
     }
 
     return 0;
@@ -99,7 +101,7 @@ void h2_xen_close(h2_xen_ctx** ctx)
         return;
     }
 
-    if ((*ctx)->xsh) {
+    if ((*ctx)->xs_active && (*ctx)->xsh) {
         xs_close((*ctx)->xsh);
     }
 
