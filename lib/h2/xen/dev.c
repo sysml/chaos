@@ -62,13 +62,22 @@ void h2_xen_dev_free(h2_xen_dev* dev)
 
 h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
 {
-    for (; (*idx) < H2_XEN_DEV_COUNT_MAX; (*idx)++) {
-        if (guest->hyp.info.xen->devs[(*idx)].type == type) {
-            return &(guest->hyp.info.xen->devs[(*idx)]);
+    int i;
+    h2_xen_dev* dev;
+
+    dev = NULL;
+    for (i = idx ? (*idx) : 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        if (guest->hyp.info.xen->devs[i].type == type) {
+            dev = &(guest->hyp.info.xen->devs[i]);
+            break;
         }
     }
 
-    return NULL;
+    if (idx) {
+        (*idx) = i;
+    }
+
+    return dev;
 }
 
 
