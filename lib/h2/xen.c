@@ -163,7 +163,6 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    int idx;
     h2_xen_dev* dev;
     h2_xen_dev_xenstore* xenstore;
     h2_xen_dev_console* console;
@@ -174,10 +173,8 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
-    idx = 0;
-    dev = NULL;
     xenstore = NULL;
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_xenstore, &idx);
+    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_xenstore, NULL);
     if (dev != NULL) {
         xenstore = &(dev->dev.xenstore);
         ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, ctx->xs.domid);
@@ -188,10 +185,8 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         xenstore->evtchn = ec_ret;
     }
 
-    idx = 0;
-    dev = NULL;
     console = NULL;
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, &idx);
+    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
     if (dev != NULL) {
         console = &(dev->dev.console);
         ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, console->backend_id);
