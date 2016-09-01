@@ -68,6 +68,11 @@ typedef struct h2_xen_ctx h2_xen_ctx;
 
 #define H2_XEN_DEV_COUNT_MAX 32
 
+enum h2_xen_dev_meth_t {
+    h2_xen_dev_meth_t_xs ,
+};
+typedef enum h2_xen_dev_meth_t h2_xen_dev_meth_t;
+
 enum h2_xen_dev_t {
     h2_xen_dev_t_none = 0 ,
     h2_xen_dev_t_console  ,
@@ -76,6 +81,8 @@ enum h2_xen_dev_t {
 typedef enum h2_xen_dev_t h2_xen_dev_t;
 
 struct h2_xen_dev_console {
+    h2_xen_dev_meth_t meth;
+
     domid_t backend_id;
     evtchn_port_t evtchn;
     unsigned long mfn;
@@ -85,6 +92,7 @@ typedef struct h2_xen_dev_console h2_xen_dev_console;
 struct h2_xen_dev_vif {
     int id;
     bool valid;
+    h2_xen_dev_meth_t meth;
 
     domid_t backend_id;
     char* ip;

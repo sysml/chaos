@@ -68,21 +68,23 @@ int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     if (vif->valid) {
         ret = EINVAL;
-        goto out_err;
+        goto out;
     }
 
-    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-        ret = h2_xen_xs_vif_create(ctx, guest, vif);
-        if (ret) {
-            goto out_err;
-        }
-
-        vif->valid = true;
+    switch (vif->meth) {
+        case h2_xen_dev_meth_t_xs:
+            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+                ret = h2_xen_xs_vif_create(ctx, guest, vif);
+                if (!ret) {
+                    vif->valid = true;
+                }
+            } else {
+                ret = EINVAL;
+            }
+            break;
     }
 
-    return 0;
-
-out_err:
+out:
     return ret;
 }
 
@@ -92,20 +94,22 @@ int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     if (!vif->valid) {
         ret = EINVAL;
-        goto out_err;
+        goto out;
     }
 
-    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-        ret = h2_xen_xs_vif_destroy(ctx, guest, vif);
-        if (ret) {
-            goto out_err;
-        }
-
-        vif->valid = false;
+    switch (vif->meth) {
+        case h2_xen_dev_meth_t_xs:
+            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+                ret = h2_xen_xs_vif_destroy(ctx, guest, vif);
+                if (!ret) {
+                    vif->valid = false;
+                }
+            } else {
+                ret = EINVAL;
+            }
+            break;
     }
 
-    return 0;
-
-out_err:
+out:
     return ret;
 }

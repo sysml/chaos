@@ -117,6 +117,7 @@ static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
 
     dev->type = h2_xen_dev_t_console;
 
+    dev->dev.console.meth = h2_xen_dev_meth_t_xs;
     /* FIXME: Need to retrieve these */
     dev->dev.console.backend_id = 0;
     dev->dev.console.evtchn = 0;
@@ -169,6 +170,7 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
         dev->type = h2_xen_dev_t_vif;
         dev->dev.vif.id = atoi(xs_list[i]);
         dev->dev.vif.valid = true;
+        dev->dev.vif.meth = h2_xen_dev_meth_t_xs;
         dev->dev.vif.backend_id = atoi(be_id_str);
         dev->dev.vif.ip = NULL;
         dev->dev.vif.mac = NULL;

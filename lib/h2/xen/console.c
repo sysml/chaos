@@ -44,9 +44,14 @@ int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* 
 {
     int ret;
 
-    ret = 0;
-    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-        ret = h2_xen_xs_console_create(ctx, guest, console);
+    switch (console->meth) {
+        case h2_xen_dev_meth_t_xs:
+            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+                ret = h2_xen_xs_console_create(ctx, guest, console);
+            } else {
+                ret = EINVAL;
+            }
+            break;
     }
 
     return ret;
@@ -56,9 +61,14 @@ int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console*
 {
     int ret;
 
-    ret = 0;
-    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-        ret = h2_xen_xs_console_destroy(ctx, guest, console);
+    switch (console->meth) {
+        case h2_xen_dev_meth_t_xs:
+            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+                ret = h2_xen_xs_console_destroy(ctx, guest, console);
+            } else {
+                ret = EINVAL;
+            }
+            break;
     }
 
     return ret;
