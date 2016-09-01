@@ -365,6 +365,8 @@ out:
 
 int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
 {
+    /* FIXME: Support adding more than one console. */
+
     int ret;
 
     xs_transaction_t th;
@@ -431,6 +433,28 @@ th_end:
     free(console_path);
     free(mfn_val);
     free(evtchn_val);
+
+    return ret;
+}
+
+int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+{
+    int ret;
+
+    char* dom_path;
+    char* console_path;
+
+
+    dom_path = guest->hyp.info.xen->xs.dom_path;
+
+    asprintf(&console_path, "%s/console", dom_path);
+
+    ret = 0;
+    if (!xs_rm(ctx->xs.xsh, XBT_NULL, console_path)) {
+        ret = errno;
+    }
+
+    free(console_path);
 
     return ret;
 }

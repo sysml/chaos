@@ -35,104 +35,30 @@
  */
 
 #include <h2/xen/console.h>
-#include <h2/xen/dev.h>
-#include <h2/xen/vif.h>
 #include <h2/xen/xs.h>
 
 
-void h2_xen_dev_free(h2_xen_dev* dev)
-{
-    switch (dev->type) {
-        case h2_xen_dev_t_none:
-            break;
+/* FIXME: Support adding more than one console. */
 
-        case h2_xen_dev_t_console:
-            break;
-
-        case h2_xen_dev_t_vif:
-            h2_xen_vif_free(&(dev->dev.vif));
-            break;
-    }
-
-    dev->type = h2_xen_dev_t_none;
-}
-
-
-h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
-{
-    int i;
-    h2_xen_dev* dev;
-
-    dev = NULL;
-    for (i = idx ? (*idx) : 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
-        if (guest->hyp.info.xen->devs[i].type == type) {
-            dev = &(guest->hyp.info.xen->devs[i]);
-            break;
-        }
-    }
-
-    if (idx) {
-        (*idx) = i;
-    }
-
-    return dev;
-}
-
-
-int h2_xen_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
 {
     int ret;
 
+    ret = 0;
     if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-        ret = h2_xen_xs_dev_enumerate(ctx, guest);
-        if (ret) {
-            goto out_err;
-        }
-    }
-
-    return 0;
-
-out_err:
-    return ret;
-}
-
-int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
-{
-    int ret;
-
-    ret = 0;
-    switch (dev->type) {
-        case h2_xen_dev_t_none:
-            break;
-
-        case h2_xen_dev_t_console:
-            ret = h2_xen_console_create(ctx, guest, &(dev->dev.console));
-            break;
-
-        case h2_xen_dev_t_vif:
-            ret = h2_xen_vif_create(ctx, guest, &(dev->dev.vif));
-            break;
+        ret = h2_xen_xs_console_create(ctx, guest, console);
     }
 
     return ret;
 }
 
-int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
+int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
 {
     int ret;
 
     ret = 0;
-    switch (dev->type) {
-        case h2_xen_dev_t_none:
-            break;
-
-        case h2_xen_dev_t_console:
-            ret = h2_xen_console_destroy(ctx, guest, &(dev->dev.console));
-            break;
-
-        case h2_xen_dev_t_vif:
-            ret = h2_xen_vif_destroy(ctx, guest, &(dev->dev.vif));
-            break;
+    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+        ret = h2_xen_xs_console_destroy(ctx, guest, console);
     }
 
     return ret;

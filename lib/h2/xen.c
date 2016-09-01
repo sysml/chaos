@@ -213,15 +213,6 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
-    if (console != NULL) {
-        if (xs_active) {
-            ret = h2_xen_xs_console_create(ctx, guest, console);
-            if (ret) {
-                goto out_xs;
-            }
-        }
-    }
-
     ret = 0;
     for (int i = 0; i < H2_XEN_DEV_COUNT_MAX && !ret; i++) {
         ret = h2_xen_dev_create(ctx, guest, &(guest->hyp.info.xen->devs[i]));
