@@ -312,9 +312,10 @@ int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
     char* xs_val;
     unsigned int xs_val_len;
 
+    guest->hyp.info.xen->xs.active = false;
     if (guest->hyp.info.xen->xs.dom_path) {
-        ret = EINVAL;
-        goto out_err;
+        free(guest->hyp.info.xen->xs.dom_path);
+        guest->hyp.info.xen->xs.dom_path = NULL;
     }
 
     dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
