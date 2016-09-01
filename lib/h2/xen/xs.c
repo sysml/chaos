@@ -200,10 +200,10 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     xs_transaction_t th;
 
-    char* domid_str = NULL;
-    char* dom_path = NULL;
-    char* data_path = NULL;
-    char* shutdown_path = NULL;
+    char* domid_str;
+    char* dom_path;
+    char* data_path;
+    char* shutdown_path;
 
     struct xs_permissions dom_rw[1];
     struct xs_permissions dom_ro[2];
