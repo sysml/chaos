@@ -46,6 +46,32 @@
 #include <xenstore.h>
 
 
+static int __guest_pre(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+    char* dom_path;
+
+    ret = 0;
+
+    if (!guest->hyp.info.xen->xs.active) {
+        ret = EINVAL;
+        goto out;
+    }
+
+    if (guest->hyp.info.xen->xs.dom_path == NULL) {
+        dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
+        if (dom_path == NULL) {
+            ret = errno;
+            goto out;
+        }
+
+        guest->hyp.info.xen->xs.dom_path = dom_path;
+    }
+
+out:
+    return ret;
+}
+
 static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key, char* value)
 {
     int ret;
@@ -208,6 +234,12 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     struct xs_permissions dom_rw[1];
     struct xs_permissions dom_ro[2];
 
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
     dom_rw[0].id = guest->id;
     dom_rw[0].perms = XS_PERM_NONE;
 
@@ -216,7 +248,7 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dom_ro[1].id = guest->id;
     dom_ro[1].perms = XS_PERM_READ;
 
-    dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
+    dom_path = guest->hyp.info.xen->xs.dom_path;
 
     asprintf(&domid_str, "%u", (unsigned int) guest->id);
     asprintf(&data_path, "%s/data", dom_path);
@@ -276,32 +308,47 @@ th_end:
         }
     }
 
-    guest->hyp.info.xen->xs.dom_path = dom_path;
-
     free(domid_str);
     free(data_path);
     free(shutdown_path);
 
+out:
     return ret;
 }
 
 int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    if (!xs_rm(ctx->xs.xsh, XBT_NULL, guest->hyp.info.xen->xs.dom_path)) {
-        return errno;
+    int ret;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
     }
 
-    return 0;
+    if (!xs_rm(ctx->xs.xsh, XBT_NULL, guest->hyp.info.xen->xs.dom_path)) {
+        ret = errno;
+    }
+
+out:
+    return ret;
 }
 
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
         evtchn_port_t evtchn, unsigned int mfn)
 {
-    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, mfn, evtchn)) {
-        return errno;
+    int ret;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
     }
 
-    return 0;
+    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, mfn, evtchn)) {
+        ret = errno;
+    }
+
+out:
+    return ret;
 }
 
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
@@ -347,8 +394,8 @@ int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    if (!guest->hyp.info.xen->xs.active) {
-        ret = EINVAL;
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
         goto out;
     }
 
@@ -381,6 +428,12 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
     char* evtchn_val;
 
     struct xs_permissions dom_rw[1];
+
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
 
     dom_rw[0].id = guest->id;
     dom_rw[0].perms = XS_PERM_NONE;
@@ -437,6 +490,7 @@ th_end:
     free(mfn_val);
     free(evtchn_val);
 
+out:
     return ret;
 }
 
@@ -447,6 +501,11 @@ int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_conso
     char* dom_path;
     char* console_path;
 
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
 
     dom_path = guest->hyp.info.xen->xs.dom_path;
 
@@ -459,6 +518,7 @@ int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_conso
 
     free(console_path);
 
+out:
     return ret;
 }
 
@@ -478,6 +538,12 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     struct xs_permissions fe_perms[2];
     struct xs_permissions be_perms[2];
+
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
 
     fe_perms[0].id = guest->id;
     fe_perms[0].perms = XS_PERM_NONE;
@@ -634,6 +700,7 @@ th_end:
     free(be_path);
     free(be_id_str);
 
+out:
     return ret;
 }
 
@@ -646,6 +713,11 @@ int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     char* fe_dev_path;
     char* be_dev_path;
 
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
 
     asprintf(&fe_dev_path, "%s/device/%s/%d", guest->hyp.info.xen->xs.dom_path, "vif", vif->id);
 
@@ -688,5 +760,6 @@ th_end:
 out_fe:
     free(fe_dev_path);
 
+out:
     return ret;
 }
