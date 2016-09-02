@@ -169,7 +169,6 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     h2_xen_dev* dev;
     h2_xen_dev_console* console;
-    xc_evtchn_port_or_error_t ec_ret;
 
 
     xs_evtchn = 0;
@@ -181,24 +180,22 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     if (xs_active) {
-        ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, guest->id, ctx->xs.domid);
-        if (ec_ret == -1) {
-            ret = errno;
+        ret = h2_xen_xc_evtchn_alloc_unbound(ctx, guest->id, ctx->xs.domid, &xs_evtchn);
+        if (ret) {
             goto out_dom;
         }
-        xs_evtchn = ec_ret;
     }
 
     console = NULL;
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
     if (dev != NULL) {
         console = &(dev->dev.console);
-        ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, guest->id, console->backend_id);
-        if (ec_ret == -1) {
-            ret = errno;
+
+        ret = h2_xen_xc_evtchn_alloc_unbound(ctx, guest->id, console->backend_id,
+                &(console->evtchn));
+        if (ret) {
             goto out_dom;
         }
-        console->evtchn = ec_ret;
     }
 
     ret = h2_xen_xc_domain_init(ctx, guest, xs_active, ctx->xs.domid, xs_evtchn, &xs_mfn, console);

@@ -243,3 +243,21 @@ int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
     return xc_domain_unpause(ctx->xc.xci, guest->id);
 }
 
+int h2_xen_xc_evtchn_alloc_unbound(h2_xen_ctx* ctx,
+        domid_t lid, domid_t rid, evtchn_port_t* evtchn)
+{
+    int ret;
+
+    xc_evtchn_port_or_error_t ec_ret;
+
+    ret = 0;
+
+    ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, lid, rid);
+    if (ec_ret == -1) {
+        ret = errno;
+    } else {
+        (*evtchn) = ec_ret;
+    }
+
+    return ret;
+}

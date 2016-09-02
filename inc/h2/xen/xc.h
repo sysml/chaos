@@ -47,4 +47,7 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
 
+int h2_xen_xc_evtchn_alloc_unbound(h2_xen_ctx* ctx,
+        domid_t lid, domid_t rid, evtchn_port_t* evtchn);
+
 #endif /* __H2__XEN__XC__H__ */
