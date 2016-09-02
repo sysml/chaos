@@ -56,14 +56,14 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
     }
 
     /* FIXME: log level should be configurable. Keep debug while developing. */
-    (*ctx)->xtl = (xentoollog_logger*) xtl_createlogger_stdiostream(stderr, XTL_DEBUG, 0);
-    if ((*ctx)->xtl == NULL) {
+    (*ctx)->xc.xtl = (xentoollog_logger*) xtl_createlogger_stdiostream(stderr, XTL_DEBUG, 0);
+    if ((*ctx)->xc.xtl == NULL) {
         ret = errno;
         goto out_mem;
     }
 
-    (*ctx)->xci = xc_interface_open((*ctx)->xtl, NULL, 0);
-    if ((*ctx)->xci == NULL) {
+    (*ctx)->xc.xci = xc_interface_open((*ctx)->xc.xtl, NULL, 0);
+    if ((*ctx)->xc.xci == NULL) {
         ret = errno;
         goto out_xtl;
     }
@@ -82,10 +82,10 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
     return 0;
 
 out_xci:
-    xc_interface_close((*ctx)->xci);
+    xc_interface_close((*ctx)->xc.xci);
 
 out_xtl:
-    xtl_logger_destroy((*ctx)->xtl);
+    xtl_logger_destroy((*ctx)->xc.xtl);
 
 out_mem:
     free(*ctx);
@@ -105,12 +105,12 @@ void h2_xen_close(h2_xen_ctx** ctx)
         xs_close((*ctx)->xs.xsh);
     }
 
-    if ((*ctx)->xci) {
-        xc_interface_close((*ctx)->xci);
+    if ((*ctx)->xc.xci) {
+        xc_interface_close((*ctx)->xc.xci);
     }
 
-    if ((*ctx)->xtl) {
-        xtl_logger_destroy((*ctx)->xtl);
+    if ((*ctx)->xc.xtl) {
+        xtl_logger_destroy((*ctx)->xc.xtl);
     }
 
     free(*ctx);
@@ -181,7 +181,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     if (xs_active) {
-        ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, ctx->xs.domid);
+        ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, guest->id, ctx->xs.domid);
         if (ec_ret == -1) {
             ret = errno;
             goto out_dom;
@@ -193,7 +193,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
     if (dev != NULL) {
         console = &(dev->dev.console);
-        ec_ret = xc_evtchn_alloc_unbound(ctx->xci, guest->id, console->backend_id);
+        ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, guest->id, console->backend_id);
         if (ec_ret == -1) {
             ret = errno;
             goto out_dom;

@@ -60,8 +60,10 @@ struct h2_xen_ctx {
         struct xs_handle* xsh;
     } xs;
 
-    xc_interface* xci;
-    xentoollog_logger *xtl;
+    struct {
+        xc_interface* xci;
+        xentoollog_logger *xtl;
+    } xc;
 };
 typedef struct h2_xen_ctx h2_xen_ctx;
 

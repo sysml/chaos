@@ -59,18 +59,18 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     dom_config.emulation_flags = 0;
 
     /* FIXME: what is the ssidref parameter? */
-    ret = xc_domain_create(ctx->xci, 0, dom_handle, flags, &domid, &dom_config);
+    ret = xc_domain_create(ctx->xc.xci, 0, dom_handle, flags, &domid, &dom_config);
     if (ret) {
         goto out_err;
     }
 
-    ret = xc_domain_max_vcpus(ctx->xci, domid, guest->vcpus.count);
+    ret = xc_domain_max_vcpus(ctx->xc.xci, domid, guest->vcpus.count);
     if (ret) {
         goto out_dom;
     }
 
     /* TODO: Support CPU pools */
-    ret = xc_cpupool_movedomain(ctx->xci, 0, domid);
+    ret = xc_cpupool_movedomain(ctx->xc.xci, 0, domid);
     if (ret) {
         goto out_dom;
     }
@@ -78,17 +78,17 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     int cpu_max;
     xc_cpumap_t cpu_map;
 
-    cpu_max = xc_get_max_cpus(ctx->xci);
+    cpu_max = xc_get_max_cpus(ctx->xc.xci);
 
     /* TODO: Support vCPU pinning. For now pinning to all available CPUs. */
     for (int vcpu = 0; vcpu < guest->vcpus.count; vcpu++) {
-        cpu_map = xc_cpumap_alloc(ctx->xci);
+        cpu_map = xc_cpumap_alloc(ctx->xc.xci);
 
         for (int cpu = 0; cpu < cpu_max; cpu ++) {
             xc_cpumap_setcpu(cpu, cpu_map);
         }
 
-        ret = xc_vcpu_setaffinity(ctx->xci, domid, vcpu, cpu_map, NULL, XEN_VCPUAFFINITY_HARD);
+        ret = xc_vcpu_setaffinity(ctx->xc.xci, domid, vcpu, cpu_map, NULL, XEN_VCPUAFFINITY_HARD);
         free(cpu_map);
 
         if (ret) {
@@ -97,18 +97,18 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     /* FIXME: Figure how this memory calls actually work */
-    ret = xc_domain_setmaxmem(ctx->xci, domid, guest->memory);
+    ret = xc_domain_setmaxmem(ctx->xc.xci, domid, guest->memory);
     if (ret) {
         goto out_dom;
     }
 
-    ret = xc_domain_set_memmap_limit(ctx->xci, domid, guest->memory);
+    ret = xc_domain_set_memmap_limit(ctx->xc.xci, domid, guest->memory);
     if (ret) {
         goto out_dom;
     }
 
     /* FIXME: Set proper TSC Mode */
-    ret = xc_domain_set_tsc_info(ctx->xci, domid, 0, 0, 0, 0);
+    ret = xc_domain_set_tsc_info(ctx->xc.xci, domid, 0, 0, 0, 0);
     if (ret) {
         goto out_dom;
     }
@@ -119,7 +119,7 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     return 0;
 
 out_dom:
-    xc_domain_destroy(ctx->xci, domid);
+    xc_domain_destroy(ctx->xc.xci, domid);
 
 out_err:
     return ret;
@@ -133,7 +133,7 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
 
     struct xc_dom_image* dom;
 
-    dom = xc_dom_allocate(ctx->xci, guest->cmdline, "");
+    dom = xc_dom_allocate(ctx->xc.xci, guest->cmdline, "");
     if (dom == NULL) {
         ret = errno;
         goto out_err;
@@ -172,7 +172,7 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
         goto out_dom;
     }
 
-    ret = xc_dom_boot_xen_init(dom, ctx->xci, guest->id);
+    ret = xc_dom_boot_xen_init(dom, ctx->xc.xci, guest->id);
     if (ret) {
         goto out_dom;
     }
@@ -235,11 +235,11 @@ out_err:
 
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    return xc_domain_destroy(ctx->xci, guest->id);
+    return xc_domain_destroy(ctx->xc.xci, guest->id);
 }
 
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    return xc_domain_unpause(ctx->xci, guest->id);
+    return xc_domain_unpause(ctx->xc.xci, guest->id);
 }
 
