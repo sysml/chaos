@@ -5,3 +5,4 @@ LIBH2_V_MINOR   := 0
 LIBH2_V_BUGFIX  := 0
 
 XEN_ROOT        := /usr/src/xen
+XEN_PREFIX      := /usr/local

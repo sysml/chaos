@@ -29,14 +29,10 @@ CFLAGS		+= -Wall -MD -MP -g
 XEN_CFLAGS	:=
 XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/include
 XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/libxc/include
+XEN_CFLAGS	+= -I$(XEN_ROOT)/dist/install/$(XEN_PREFIX)/include
 
 XEN_LDFLAGS	:=
-XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/call
-XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/evtchn
-XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/foreignmemory
-XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/gnttab
-XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libs/toollog
-XEN_LDFLAGS += -L$(XEN_ROOT)/tools/libxc
+XEN_LDFLAGS	+= -L$(XEN_ROOT)/dist/install/$(XEN_PREFIX)/lib
 XEN_LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog
 
 
