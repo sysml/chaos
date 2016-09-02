@@ -45,11 +45,18 @@
 #include <xenctrl.h>
 
 
+enum h2_xen_xlib_t {
+    h2_xen_xlib_t_xc ,
+};
+typedef enum h2_xen_xlib_t h2_xen_xlib_t;
+
 struct h2_xen_cfg {
     struct {
         bool active;
         domid_t domid;
     } xs;
+
+    h2_xen_xlib_t xlib;
 };
 typedef struct h2_xen_cfg h2_xen_cfg;
 
@@ -64,6 +71,8 @@ struct h2_xen_ctx {
         xc_interface* xci;
         xentoollog_logger *xtl;
     } xc;
+
+    h2_xen_xlib_t xlib;
 };
 typedef struct h2_xen_ctx h2_xen_ctx;
 
