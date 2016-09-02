@@ -49,6 +49,7 @@
 static int __guest_pre(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
+
     char* dom_path;
 
     ret = 0;
@@ -75,9 +76,11 @@ out:
 static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key, char* value)
 {
     int ret;
+
     char* fpath;
 
     ret = 0;
+
     asprintf(&fpath, "%s/%s", path, key);
 
     if (!xs_write(ctx->xs.xsh, th, fpath, value, strlen(value))) {
@@ -92,10 +95,12 @@ static int __write_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* ke
 static int __read_kv(h2_xen_ctx* ctx, xs_transaction_t th, char* path, char* key, char** value)
 {
     int ret;
+
     char* fpath;
     unsigned int len;
 
     ret = 0;
+
     asprintf(&fpath, "%s/%s", path, key);
 
     (*value) = xs_read(ctx->xs.xsh, th, fpath, &len);
@@ -117,8 +122,8 @@ static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
     int idx;
     h2_xen_dev* dev;
 
-
     ret = 0;
+
     dom_path = guest->hyp.info.xen->xs.dom_path;
 
     /* Check if the domain has xenstore by reading console path. The value read
@@ -167,6 +172,7 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
     h2_xen_dev* dev;
 
     ret = 0;
+
     asprintf(&fe_path, "%s/device/%s", guest->hyp.info.xen->xs.dom_path, "vif");
 
     xs_list = xs_directory(ctx->xs.xsh, XBT_NULL, fe_path, &xs_list_num);
@@ -207,13 +213,8 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
         free(fe_dev_path);
 
     }
-    if (ret) {
-        goto out_xs_list;
-    }
 
-out_xs_list:
     free(xs_list);
-
 out_path:
     free(fe_path);
 
@@ -233,7 +234,6 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     struct xs_permissions dom_rw[1];
     struct xs_permissions dom_ro[2];
-
 
     ret = __guest_pre(ctx, guest);
     if (ret) {
@@ -311,7 +311,6 @@ th_end:
     free(domid_str);
     free(data_path);
     free(shutdown_path);
-
 out:
     return ret;
 }
@@ -359,6 +358,8 @@ int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
     char* xs_val;
     unsigned int xs_val_len;
 
+    ret = 0;
+
     guest->hyp.info.xen->xs.active = false;
     if (guest->hyp.info.xen->xs.dom_path) {
         free(guest->hyp.info.xen->xs.dom_path);
@@ -368,7 +369,7 @@ int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
     dom_path = xs_get_domain_path(ctx->xs.xsh, guest->id);
     if (!dom_path) {
         ret = errno;
-        goto out_err;
+        goto out;
     }
 
     /* Check if the domain has xenstore by reading domain path. The value read
@@ -384,9 +385,7 @@ int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
         free(xs_val);
     }
 
-    return 0;
-
-out_err:
+out:
     return ret;
 }
 
@@ -415,20 +414,16 @@ out:
 
 int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
 {
-    /* FIXME: Support adding more than one console. */
-
     int ret;
 
     xs_transaction_t th;
 
-    char* dom_path;
     char* console_path;
     char* type_val;
     char* mfn_val;
     char* evtchn_val;
 
     struct xs_permissions dom_rw[1];
-
 
     ret = __guest_pre(ctx, guest);
     if (ret) {
@@ -438,9 +433,7 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
     dom_rw[0].id = guest->id;
     dom_rw[0].perms = XS_PERM_NONE;
 
-    dom_path = guest->hyp.info.xen->xs.dom_path;
-
-    asprintf(&console_path, "%s/console", dom_path);
+    asprintf(&console_path, "%s/console", guest->hyp.info.xen->xs.dom_path);
     asprintf(&mfn_val, "%lu", console->mfn);
     asprintf(&evtchn_val, "%u", console->evtchn);
     type_val = "xenconsoled";
@@ -489,7 +482,6 @@ th_end:
     free(console_path);
     free(mfn_val);
     free(evtchn_val);
-
 out:
     return ret;
 }
@@ -498,18 +490,14 @@ int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_conso
 {
     int ret;
 
-    char* dom_path;
     char* console_path;
-
 
     ret = __guest_pre(ctx, guest);
     if (ret) {
         goto out;
     }
 
-    dom_path = guest->hyp.info.xen->xs.dom_path;
-
-    asprintf(&console_path, "%s/console", dom_path);
+    asprintf(&console_path, "%s/console", guest->hyp.info.xen->xs.dom_path);
 
     ret = 0;
     if (!xs_rm(ctx->xs.xsh, XBT_NULL, console_path)) {
@@ -539,7 +527,6 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     struct xs_permissions fe_perms[2];
     struct xs_permissions be_perms[2];
 
-
     ret = __guest_pre(ctx, guest);
     if (ret) {
         goto out;
@@ -564,7 +551,6 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     be_dom_path = xs_get_domain_path(ctx->xs.xsh, vif->backend_id);
     asprintf(&be_path, "%s/backend/%s/%u/%d", be_dom_path, "vif", (domid_t) guest->id, vif->id);
     asprintf(&be_id_str, "%d", vif->backend_id);
-
 
 th_start:
     ret = 0;
@@ -699,7 +685,6 @@ th_end:
     free(be_dom_path);
     free(be_path);
     free(be_id_str);
-
 out:
     return ret;
 }
@@ -713,19 +698,16 @@ int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     char* fe_dev_path;
     char* be_dev_path;
 
-
     ret = __guest_pre(ctx, guest);
     if (ret) {
         goto out;
     }
 
     asprintf(&fe_dev_path, "%s/device/%s/%d", guest->hyp.info.xen->xs.dom_path, "vif", vif->id);
-
     ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
     if (ret) {
         goto out_fe;
     }
-
 
 th_start:
     ret = 0;
@@ -754,12 +736,9 @@ th_end:
         }
     }
 
-
     free(be_dev_path);
-
 out_fe:
     free(fe_dev_path);
-
 out:
     return ret;
 }
