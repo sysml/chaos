@@ -49,7 +49,7 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
         goto out_err;
     }
 
-    (*ctx) = (h2_xen_ctx*) malloc(sizeof(h2_xen_ctx));
+    (*ctx) = (h2_xen_ctx*) calloc(1, sizeof(h2_xen_ctx));
     if ((*ctx) == NULL) {
         ret = errno;
         goto out_err;
