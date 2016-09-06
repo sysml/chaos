@@ -14,17 +14,20 @@ endif
 # Libraries
 LIBH2_A		:= libh2.a
 LIBH2_SO	:= libh2.so
-LIBH2_SO_V	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
-LIBH2_SO_VM	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR)
+LIBH2_SO_M		:= $(LIBH2_SO).$(LIBH2_V_MAJOR)
+LIBH2_SO_Mm		:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR)
+LIBH2_SO_MmB	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
 
 LIBH2_OBJ	:=
-LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2 -name "*.c"))
+LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2/ -name "*.c"))
 
 
 # Default build flags
 CFLAGS		+= -Iinc
 CFLAGS		+= -std=gnu11
 CFLAGS		+= -Wall -MD -MP -g
+
+LDFLAGS		+= -Llib
 
 XEN_CFLAGS	:=
 XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/include
@@ -37,16 +40,16 @@ XEN_LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog
 
 
 # Targets
-all: lib/$(LIBH2_SO) lib/$(LIBH2_A)
+all: libh2
 
 tests:
 
-install: lib/$(LIBH2_SO)
-	$(call cmd, "INSTALL", "include/h2", cp -r, inc/h2 /usr/local/include/)
-	$(call cmd, "INSTALL", $(LIBH2_A), cp, lib/$(LIBH2_A) /usr/local/lib/)
-	$(call cmd, "INSTALL", $(LIBH2_SO), ln -sf, $(LIBH2_SO_V) /usr/local/lib/$(LIBH2_SO))
-	$(call cmd, "INSTALL", $(LIBH2_SO_VM), ln -sf, $(LIBH2_SO_V) /usr/local/lib/$(LIBH2_SO_VM))
-	$(call cmd, "INSTALL", $(LIBH2_SO_V), cp, lib/$(LIBH2_SO) /usr/local/lib/$(LIBH2_SO_V))
+install: libh2
+	$(call cmd, "INSTALL", "include/h2"   , cp -r , inc/h2            $(PREFIX)/include/)
+	$(call cmd, "INSTALL", $(LIBH2_SO_MmB), cp -f , lib/$(LIBH2_SO)   $(PREFIX)/lib/$(LIBH2_SO_MmB))
+	$(call cmd, "INSTALL", $(LIBH2_SO_M)  , ln -sf, $(LIBH2_SO_MmB)   $(PREFIX)/lib/$(LIBH2_SO_M))
+	$(call cmd, "INSTALL", $(LIBH2_SO)    , ln -sf, $(LIBH2_SO_MmB)   $(PREFIX)/lib/$(LIBH2_SO))
+	$(call cmd, "INSTALL", $(LIBH2_A)     , cp -f , lib/$(LIBH2_A)    $(PREFIX)/lib/$(LIBH2_A))
 	$(call cmd, "LDCONFIG", "", ldconfig)
 
 configure: $(config)
@@ -63,7 +66,7 @@ distclean: clean
 .PHONY: all tests install configure clean distclean
 
 
-libh2: $(LIBH2_SO)
+libh2: lib/$(LIBH2_SO) lib/$(LIBH2_A)
 
 .PHONY: libh2
 
@@ -73,13 +76,13 @@ $(config): config.in
 	$(call cmd, "CONFIG", $@, cp -n, $^ $@)
 
 lib/$(LIBH2_SO): LDFLAGS += -shared
-lib/$(LIBH2_SO): LDFLAGS += -Wl,-soname,libh2.so.$(LIBH2_V_MAJOR)
+lib/$(LIBH2_SO): LDFLAGS += -Wl,-soname,$(LIBH2_SO_M)
 lib/$(LIBH2_SO): LDFLAGS += $(XEN_LDFLAGS)
 lib/$(LIBH2_SO): $(LIBH2_OBJ)
 	$(call clink, $^, $@)
 
 lib/$(LIBH2_A): $(LIBH2_OBJ)
-	$(call cmd, "AR", "lib/$(LIBH2_A)", ar rcs, $@ $^)
+	$(call cmd, "AR", $@, ar rcs, $@ $^)
 
 $(LIBH2_OBJ): CFLAGS += -fPIC
 $(LIBH2_OBJ): CFLAGS += $(XEN_CFLAGS)

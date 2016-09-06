@@ -6,3 +6,6 @@ LIBH2_V_BUGFIX  := 0
 
 XEN_ROOT        := /usr/src/xen
 XEN_PREFIX      := /usr/local
+
+# installation
+PREFIX          := /usr/local
