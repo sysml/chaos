@@ -48,13 +48,13 @@ all: libh2 chaos
 tests:
 
 install: libh2
-	$(call cmd, "INSTALL", "include/h2"   , cp -r , inc/h2            $(PREFIX)/include/)
-	$(call cmd, "INSTALL", $(LIBH2_SO_MmB), cp -f , lib/$(LIBH2_SO)   $(PREFIX)/lib/$(LIBH2_SO_MmB))
-	$(call cmd, "INSTALL", $(LIBH2_SO_M)  , ln -sf, $(LIBH2_SO_MmB)   $(PREFIX)/lib/$(LIBH2_SO_M))
-	$(call cmd, "INSTALL", $(LIBH2_SO)    , ln -sf, $(LIBH2_SO_MmB)   $(PREFIX)/lib/$(LIBH2_SO))
-	$(call cmd, "INSTALL", $(LIBH2_A)     , cp -f , lib/$(LIBH2_A)    $(PREFIX)/lib/$(LIBH2_A))
+	$(call cmd, "INSTALL", "include/h2"   , cp -r , inc/h2          $(PREFIX)/include/)
+	$(call cmd, "INSTALL", $(LIBH2_SO_MmB), cp -f , lib/$(LIBH2_SO) $(PREFIX)/lib/$(LIBH2_SO_MmB))
+	$(call cmd, "INSTALL", $(LIBH2_SO_M)  , ln -sf, $(LIBH2_SO_MmB) $(PREFIX)/lib/$(LIBH2_SO_M))
+	$(call cmd, "INSTALL", $(LIBH2_SO)    , ln -sf, $(LIBH2_SO_MmB) $(PREFIX)/lib/$(LIBH2_SO))
+	$(call cmd, "INSTALL", $(LIBH2_A)     , cp -f , lib/$(LIBH2_A)  $(PREFIX)/lib/$(LIBH2_A))
 	$(call cmd, "LDCONFIG", "", ldconfig)
-	$(call cmd, "INSTALL", $(CHAOS_BIN)   , cp -f , bin/$(CHAOS_BIN)  $(PREFIX)/bin/$(CHAOS_BIN))
+	$(call cmd, "INSTALL", $(CHAOS_BIN)   , cp -f , bin/$(CHAOS_BIN) $(PREFIX)/bin/$(CHAOS_BIN))
 
 uninstall:
 	$(call cmd, "UNINSTALL", "include/h2"   , rm -rf, $(PREFIX)/include/h2)
@@ -72,10 +72,10 @@ clean:
 	$(call cmd, "CLEAN", "*.d", rm -rf, $(shell find -name "*.d"))
 
 distclean: clean
-	$(call cmd, "CLEAN", $(LIBH2_A), rm -f, lib/$(LIBH2_A))
-	$(call cmd, "CLEAN", $(LIBH2_SO), rm -f, lib/$(LIBH2_SO))
+	$(call cmd, "CLEAN", $(LIBH2_A)  , rm -f, lib/$(LIBH2_A))
+	$(call cmd, "CLEAN", $(LIBH2_SO) , rm -f, lib/$(LIBH2_SO))
 	$(call cmd, "CLEAN", $(CHAOS_BIN), rm -f, bin/$(CHAOS_BIN))
-	$(call cmd, "CLEAN", $(config), rm -f, $(config))
+	$(call cmd, "CLEAN", $(config)   , rm -f, $(config))
 
 .PHONY: all tests install uninstall configure clean distclean
 
