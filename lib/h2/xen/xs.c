@@ -659,11 +659,9 @@ th_start:
         goto th_end;
     }
 
-    if (vif->script) {
-        ret = __write_kv(ctx, th, be_path, "script", vif->script);
-        if (ret) {
-            goto th_end;
-        }
+    ret = __write_kv(ctx, th, be_path, "script", vif->script ? vif->script : "");
+    if (ret) {
+        goto th_end;
     }
 
 th_end:
