@@ -56,6 +56,15 @@ install: libh2
 	$(call cmd, "LDCONFIG", "", ldconfig)
 	$(call cmd, "INSTALL", $(CHAOS_BIN)   , cp -f , bin/$(CHAOS_BIN)  $(PREFIX)/bin/$(CHAOS_BIN))
 
+uninstall:
+	$(call cmd, "UNINSTALL", "include/h2"   , rm -rf, $(PREFIX)/include/h2)
+	$(call cmd, "UNINSTALL", $(LIBH2_SO_MmB), rm -f , $(PREFIX)/lib/$(LIBH2_SO_MmB))
+	$(call cmd, "UNINSTALL", $(LIBH2_SO_M)  , rm -f , $(PREFIX)/lib/$(LIBH2_SO_M))
+	$(call cmd, "UNINSTALL", $(LIBH2_SO)    , rm -f , $(PREFIX)/lib/$(LIBH2_SO))
+	$(call cmd, "UNINSTALL", $(LIBH2_A)     , rm -f , $(PREFIX)/lib/$(LIBH2_A))
+	$(call cmd, "LDCONFIG", "", ldconfig)
+	$(call cmd, "UNINSTALL", $(CHAOS_BIN)   , rm -f , $(PREFIX)/bin/$(CHAOS_BIN))
+
 configure: $(config)
 
 clean:
@@ -68,7 +77,7 @@ distclean: clean
 	$(call cmd, "CLEAN", $(CHAOS_BIN), rm -f, bin/$(CHAOS_BIN))
 	$(call cmd, "CLEAN", $(config), rm -f, $(config))
 
-.PHONY: all tests install configure clean distclean
+.PHONY: all tests install uninstall configure clean distclean
 
 
 libh2: lib/$(LIBH2_SO) lib/$(LIBH2_A)
