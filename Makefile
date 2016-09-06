@@ -8,6 +8,9 @@ endif
 
 
 # Applications
+CHAOS_BIN	:= chaos
+CHAOS_OBJ	:=
+CHAOS_OBJ	+= $(patsubst %.c, %.o, $(shell find bin/chaos.src/ -name "*.c"))
 
 # Tests
 
@@ -40,7 +43,7 @@ XEN_LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog
 
 
 # Targets
-all: libh2
+all: libh2 chaos
 
 tests:
 
@@ -51,6 +54,7 @@ install: libh2
 	$(call cmd, "INSTALL", $(LIBH2_SO)    , ln -sf, $(LIBH2_SO_MmB)   $(PREFIX)/lib/$(LIBH2_SO))
 	$(call cmd, "INSTALL", $(LIBH2_A)     , cp -f , lib/$(LIBH2_A)    $(PREFIX)/lib/$(LIBH2_A))
 	$(call cmd, "LDCONFIG", "", ldconfig)
+	$(call cmd, "INSTALL", $(CHAOS_BIN)   , cp -f , bin/$(CHAOS_BIN)  $(PREFIX)/bin/$(CHAOS_BIN))
 
 configure: $(config)
 
@@ -61,6 +65,7 @@ clean:
 distclean: clean
 	$(call cmd, "CLEAN", $(LIBH2_A), rm -f, lib/$(LIBH2_A))
 	$(call cmd, "CLEAN", $(LIBH2_SO), rm -f, lib/$(LIBH2_SO))
+	$(call cmd, "CLEAN", $(CHAOS_BIN), rm -f, bin/$(CHAOS_BIN))
 	$(call cmd, "CLEAN", $(config), rm -f, $(config))
 
 .PHONY: all tests install configure clean distclean
@@ -68,12 +73,23 @@ distclean: clean
 
 libh2: lib/$(LIBH2_SO) lib/$(LIBH2_A)
 
-.PHONY: libh2
+chaos: bin/$(CHAOS_BIN)
+
+.PHONY: libh2 chaos
 
 
 # Build rules
 $(config): config.in
 	$(call cmd, "CONFIG", $@, cp -n, $^ $@)
+
+# Basically bin/$(CHAOS_BIN) should depend on lib/$(LIBH2_SO) so that the library gets built before
+# bin/$(CHAOS_BIN). However, if the lib gets built as a dependency of bin$(CHAOS_BIN) LDFLAGS will
+# contain -lh2 which will obviously make the build fail. I really have no time or patience to deal
+# with make so for the time being just call $(MAKE) to build lib/$(LIBH2_SO) and be done with it.
+bin/$(CHAOS_BIN): LDFLAGS += -ljansson -lh2
+bin/$(CHAOS_BIN): $(CHAOS_OBJ)
+	$(MAKE) lib/$(LIBH2_SO)
+	$(call clink, $^, $@)
 
 lib/$(LIBH2_SO): LDFLAGS += -shared
 lib/$(LIBH2_SO): LDFLAGS += -Wl,-soname,$(LIBH2_SO_M)
@@ -104,4 +120,5 @@ clink		 = $(call cmd, "LD", $2, $(CC), $(CFLAGS) $(1) $(LDFLAGS) -o $(2))
 
 
 # Include auto-generated prerequisites
+-include $(CHAOS_OBJ:%.o=%.d)
 -include $(LIBH2_OBJ:%.o=%.d)
