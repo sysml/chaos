@@ -41,6 +41,13 @@ XEN_LDFLAGS	:=
 XEN_LDFLAGS	+= -L$(XEN_ROOT)/dist/install/$(XEN_PREFIX)/lib
 XEN_LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog
 
+LIBH2_DEP_CFLAGS	:=
+LIBH2_DEP_CFLAGS	+= $(XEN_CFLAGS)
+
+LIBH2_DEP_LDFLAGS	:=
+LIBH2_DEP_LDFLAGS	+= -lh2
+LIBH2_DEP_LDFLAGS	+= -Wl,-rpath-link,$(XEN_ROOT)/dist/install/$(XEN_PREFIX)/lib
+
 
 # Targets
 all: libh2 chaos
@@ -95,10 +102,13 @@ $(config): config.in
 # bin/$(CHAOS_BIN). However, if the lib gets built as a dependency of bin$(CHAOS_BIN) LDFLAGS will
 # contain -lh2 which will obviously make the build fail. I really have no time or patience to deal
 # with make so for the time being just call $(MAKE) to build lib/$(LIBH2_SO) and be done with it.
-bin/$(CHAOS_BIN): LDFLAGS += -ljansson -lh2
+bin/$(CHAOS_BIN): LDFLAGS += -ljansson
+bin/$(CHAOS_BIN): LDFLAGS += $(LIBH2_DEP_LDFLAGS)
 bin/$(CHAOS_BIN): $(CHAOS_OBJ)
 	$(MAKE) lib/$(LIBH2_SO)
 	$(call clink, $^, $@)
+
+$(CHAOS_OBJ): CFLAGS += $(LIBH2_DEP_CFLAGS)
 
 lib/$(LIBH2_SO): LDFLAGS += -shared
 lib/$(LIBH2_SO): LDFLAGS += -Wl,-soname,$(LIBH2_SO_M)
