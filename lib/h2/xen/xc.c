@@ -54,9 +54,13 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     /* NOTE: H2 only supports PV or PVH guests */
 
-    /* TODO: Support PVH */
     flags = 0;
     dom_config.emulation_flags = 0;
+
+    if (guest->hyp.info.xen->pvh) {
+        flags |= XEN_DOMCTL_CDF_pvh_guest;
+        flags |= XEN_DOMCTL_CDF_hap;
+    }
 
     /* FIXME: what is the ssidref parameter? */
     ret = xc_domain_create(ctx->xc.xci, 0, dom_handle, flags, &domid, &dom_config);
@@ -107,12 +111,15 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_dom;
     }
 
-    /* FIXME: Set proper TSC Mode */
-    ret = xc_domain_set_tsc_info(ctx->xc.xci, domid, 0, 0, 0, 0);
+    /* FIXME: Check what is the proper TSC Mode for pv and use macros */
+    if (guest->hyp.info.xen->pvh) {
+        ret = xc_domain_set_tsc_info(ctx->xc.xci, domid, 2, 0, 0, 0);
+    } else {
+        ret = xc_domain_set_tsc_info(ctx->xc.xci, domid, 0, 0, 0, 0);
+    }
     if (ret) {
         goto out_dom;
     }
-
 
     guest->id = domid;
 
@@ -131,9 +138,19 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
 {
     int ret;
 
+    char* features;
     struct xc_dom_image* dom;
 
-    dom = xc_dom_allocate(ctx->xc.xci, guest->cmdline, "");
+    features = NULL;
+    if (guest->hyp.info.xen->pvh) {
+        features =
+            "|writable_descriptor_tables"
+            "|auto_translated_physmap"
+            "|supervisor_mode_kernel"
+            "|hvm_callback_vector";
+    }
+
+    dom = xc_dom_allocate(ctx->xc.xci, guest->cmdline, features);
     if (dom == NULL) {
         ret = errno;
         goto out_err;
@@ -150,9 +167,9 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
     }
 
     dom->flags = 0;
-
-    /* FIXME: Support PVH */
-    /* dom->pvh_enable = 1; */
+    if (guest->hyp.info.xen->pvh) {
+        dom->pvh_enabled = 1;
+    }
 
     switch (guest->kernel.type) {
         case h2_kernel_buff_t_mem:
@@ -215,12 +232,22 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
     }
 
     if (xs_active) {
-        (*xs_mfn) = xc_dom_p2m(dom, dom->xenstore_pfn);
+        if (guest->hyp.info.xen->pvh) {
+            (*xs_mfn) = dom->xenstore_pfn;
+        } else {
+            (*xs_mfn) = xc_dom_p2m(dom, dom->xenstore_pfn);
+        }
     }
 
     if (console != NULL) {
-        console->mfn = xc_dom_p2m(dom, dom->console_pfn);
+        if (guest->hyp.info.xen->pvh) {
+            console->mfn = dom->console_pfn;
+        } else {
+            console->mfn = xc_dom_p2m(dom, dom->console_pfn);
+        }
     }
+
+    xc_cpuid_apply_policy(ctx->xc.xci, guest->id, NULL, 0);
 
     xc_dom_release(dom);
 

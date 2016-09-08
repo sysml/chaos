@@ -129,6 +129,8 @@ struct h2_xen_guest {
         char* dom_path;
     } xs;
 
+    bool pvh;
+
     h2_xen_dev devs[H2_XEN_DEV_COUNT_MAX];
 };
 typedef struct h2_xen_guest h2_xen_guest;

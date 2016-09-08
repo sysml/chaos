@@ -39,6 +39,8 @@
 #include <h2/xen/xc.h>
 #include <h2/xen/xs.h>
 
+#include <xc_dom.h>
+
 
 int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
 {
