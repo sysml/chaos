@@ -61,6 +61,9 @@ struct config {
         const char* mac;
         const char* bridge;
     } vifs[DEV_MAX_COUNT];
+
+    bool paused;
+    bool paused_set;
 };
 typedef struct config config;
 
@@ -119,6 +122,8 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
     (*guest)->memory = conf->memory * 1024;
     (*guest)->vcpus.count = conf->vcpus;
+
+    (*guest)->paused = conf->paused;
 
     (*guest)->hyp.info.xen->xs.active = true;
 
@@ -302,6 +307,21 @@ static int __parse_root(json_t* root, config* conf)
                     goto out;
                 }
             }
+        } else if (strcmp(key, "paused") == 0) {
+            if (conf->paused_set) {
+                fprintf(stderr, "Parameter 'paused' defined multiple times.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            if (!json_is_boolean(value)) {
+                fprintf(stderr, "Parameter 'paused' has invalid type, must be boolean.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            conf->paused = json_boolean_value(value);
+            conf->paused_set = true;
         } else {
             fprintf(stderr, "Invalid parameter '%s' on guest definition.\n", key);
             ret = EINVAL;
