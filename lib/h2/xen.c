@@ -262,12 +262,14 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
-    switch (ctx->xlib) {
-        case (h2_xen_xlib_t_xc):
-            ret = h2_xen_xc_domain_unpause(ctx, guest);
-            if (ret) {
-                goto out_xs;
-            }
+    if (!guest->paused) {
+        switch (ctx->xlib) {
+            case (h2_xen_xlib_t_xc):
+                ret = h2_xen_xc_domain_unpause(ctx, guest);
+                if (ret) {
+                    goto out_xs;
+                }
+        }
     }
 
     return 0;

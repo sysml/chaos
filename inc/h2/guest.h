@@ -71,6 +71,8 @@ struct h2_guest {
         } buff;
     } kernel;
 
+    bool paused;
+
     h2_hyp_guest hyp;
 };
 typedef struct h2_guest h2_guest;
