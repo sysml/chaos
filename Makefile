@@ -54,7 +54,7 @@ all: libh2 chaos
 
 tests:
 
-install: libh2
+install: libh2 chaos
 	$(call cmd, "INSTALL", "include/h2"   , cp -r , inc/h2          $(PREFIX)/include/)
 	$(call cmd, "INSTALL", $(LIBH2_SO_MmB), cp -f , lib/$(LIBH2_SO) $(PREFIX)/lib/$(LIBH2_SO_MmB))
 	$(call cmd, "INSTALL", $(LIBH2_SO_M)  , ln -sf, $(LIBH2_SO_MmB) $(PREFIX)/lib/$(LIBH2_SO_M))
