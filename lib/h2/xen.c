@@ -195,7 +195,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     xs_active = ctx->xs.active && guest->hyp.info.xen->xs.active;
 
     switch (ctx->xlib) {
-        case (h2_xen_xlib_t_xc):
+        case h2_xen_xlib_t_xc:
             ret = h2_xen_xc_domain_create(ctx, guest);
             if (ret) {
                 goto out_err;
@@ -205,7 +205,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     if (xs_active) {
         switch (ctx->xlib) {
-            case (h2_xen_xlib_t_xc):
+            case h2_xen_xlib_t_xc:
                 ret = h2_xen_xc_evtchn_alloc_unbound(ctx, guest->id, ctx->xs.domid, &xs_evtchn);
                 if (ret) {
                     goto out_dom;
@@ -220,7 +220,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         console = &(dev->dev.console);
 
         switch (ctx->xlib) {
-            case (h2_xen_xlib_t_xc):
+            case h2_xen_xlib_t_xc:
                 ret = h2_xen_xc_evtchn_alloc_unbound(ctx, guest->id, console->backend_id,
                         &(console->evtchn));
                 if (ret) {
@@ -231,7 +231,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     switch (ctx->xlib) {
-        case (h2_xen_xlib_t_xc):
+        case h2_xen_xlib_t_xc:
             ret = h2_xen_xc_domain_init(ctx, guest,
                     xs_active, ctx->xs.domid, xs_evtchn, &xs_mfn, console);
             if (ret) {
@@ -264,7 +264,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     if (!guest->paused) {
         switch (ctx->xlib) {
-            case (h2_xen_xlib_t_xc):
+            case h2_xen_xlib_t_xc:
                 ret = h2_xen_xc_domain_unpause(ctx, guest);
                 if (ret) {
                     goto out_xs;
