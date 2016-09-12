@@ -86,8 +86,8 @@ typedef enum h2_xen_dev_meth_t h2_xen_dev_meth_t;
 
 enum h2_xen_dev_t {
     h2_xen_dev_t_none = 0 ,
-    h2_xen_dev_t_console  ,
-    h2_xen_dev_t_vif      ,
+    h2_xen_dev_t_console ,
+    h2_xen_dev_t_vif ,
 };
 typedef enum h2_xen_dev_t h2_xen_dev_t;
 
