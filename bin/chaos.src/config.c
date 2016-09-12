@@ -64,6 +64,12 @@ struct config {
 
     bool paused;
     bool paused_set;
+
+    struct {
+        bool pvh;
+        bool pvh_set;
+    } xen;
+    bool xen_set;
 };
 typedef struct config config;
 
@@ -204,6 +210,48 @@ out:
     return ret;
 }
 
+static int __parse_xen(json_t* xen, config* conf)
+{
+    int ret;
+
+    json_t* value;
+    const char* key;
+
+    if (!json_is_object(xen)) {
+        fprintf(stderr, "Parameter 'xen' has invalid type, must be object.\n");
+        ret = EINVAL;
+        goto out;
+    }
+
+    json_object_foreach(xen, key, value) {
+        if (strcmp(key, "pvh") == 0) {
+            if (conf->xen.pvh_set) {
+                fprintf(stderr, "Parameter 'pvh' defined multiple times.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            if (!json_is_boolean(value)) {
+                fprintf(stderr, "Parameter 'pvh' has invalid type, must be boolean.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            conf->xen.pvh = json_boolean_value(value);
+            conf->xen.pvh_set = true;
+        } else {
+            fprintf(stderr, "Invalid parameter '%s' on xen definition.\n", key);
+            ret = EINVAL;
+            goto out;
+        }
+    }
+
+    return 0;
+
+out:
+    return ret;
+}
+
 static int __parse_root(json_t* root, config* conf)
 {
     int ret;
@@ -322,6 +370,17 @@ static int __parse_root(json_t* root, config* conf)
 
             conf->paused = json_boolean_value(value);
             conf->paused_set = true;
+        } else if (strcmp(key, "xen") == 0) {
+            if (conf->xen_set) {
+                fprintf(stderr, "Parameter 'xen' defined multiple times.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            ret = __parse_xen(value, conf);
+            if (ret) {
+                goto out;
+            }
         } else {
             fprintf(stderr, "Invalid parameter '%s' on guest definition.\n", key);
             ret = EINVAL;
