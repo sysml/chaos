@@ -96,13 +96,7 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
-    /* FIXME: Figure how this memory calls actually work */
     ret = xc_domain_setmaxmem(ctx->xc.xci, domid, guest->memory);
-    if (ret) {
-        goto out_dom;
-    }
-
-    ret = xc_domain_set_memmap_limit(ctx->xc.xci, domid, guest->memory);
     if (ret) {
         goto out_dom;
     }
