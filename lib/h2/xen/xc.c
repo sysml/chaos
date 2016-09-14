@@ -74,10 +74,6 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     /* TODO: Support CPU pools */
-    ret = xc_cpupool_movedomain(ctx->xc.xci, 0, domid);
-    if (ret) {
-        goto out_dom;
-    }
 
     int cpu_max;
     xc_cpumap_t cpu_map;
