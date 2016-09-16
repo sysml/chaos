@@ -56,14 +56,14 @@ struct h2_guest {
 
     uint memory;
 
-    struct vcpus {
+    struct {
         int count;
     } vcpus;
 
-    struct kernel {
+    struct {
         h2_kernel_buff_t type;
         union {
-            struct mem {
+            struct {
                 void* ptr;
                 size_t size;
             } mem;
