@@ -43,6 +43,25 @@
 #include <xc_dom.h>
 
 
+static int __evtchn_alloc_unbound(h2_xen_ctx* ctx, domid_t lid, domid_t rid, evtchn_port_t* evtchn)
+{
+    int ret;
+
+    xc_evtchn_port_or_error_t ec_ret;
+
+    ret = 0;
+
+    ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, lid, rid);
+    if (ec_ret == -1) {
+        ret = errno;
+    } else {
+        (*evtchn) = ec_ret;
+    }
+
+    return ret;
+}
+
+
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -123,8 +142,7 @@ out_err:
 }
 
 int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
-        bool xs_active, domid_t xs_domid, evtchn_port_t xs_evtchn, unsigned int* xs_mfn,
-        h2_xen_dev_console* console)
+        h2_xen_xc_dev_info* xs, h2_xen_xc_dev_info* console)
 {
     int ret;
 
@@ -146,13 +164,22 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
         goto out_err;
     }
 
-    if (xs_active) {
-        dom->xenstore_domid = xs_domid;
-        dom->xenstore_evtchn = xs_evtchn;
+
+    if (xs->active) {
+        dom->xenstore_domid = xs->be_id;
+        ret = __evtchn_alloc_unbound(ctx, guest->id, xs->be_id, &(xs->evtchn));
+        if (ret) {
+            goto out_dom;
+        }
+        dom->xenstore_evtchn = xs->evtchn;
     }
 
-    if (console != NULL) {
-        dom->console_domid = console->backend_id;
+    if (console->active) {
+        dom->console_domid = console->be_id;
+        ret = __evtchn_alloc_unbound(ctx, guest->id, console->be_id, &(console->evtchn));
+        if (ret) {
+            goto out_xs_evtchn;
+        }
         dom->console_evtchn = console->evtchn;
     }
 
@@ -176,60 +203,60 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
             break;
     }
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
     ret = xc_dom_boot_xen_init(dom, ctx->xc.xci, guest->id);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
 #if defined(__arm__) || defined(__aarch64__)
     ret = xc_dom_rambase_init(dom, GUEST_RAM_BASE);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 #endif
 
     ret = xc_dom_parse_image(dom);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
     ret = xc_dom_mem_init(dom, guest->memory / 1024);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
     ret = xc_dom_boot_mem_init(dom);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
     ret = xc_dom_build_image(dom);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
     ret = xc_dom_boot_image(dom);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
     ret = xc_dom_gnttab_init(dom);
     if (ret) {
-        goto out_dom;
+        goto out_console_evtchn;
     }
 
-    if (xs_active) {
+    if (xs->active) {
         if (guest->hyp.info.xen->pvh) {
-            (*xs_mfn) = dom->xenstore_pfn;
+            xs->mfn = dom->xenstore_pfn;
         } else {
-            (*xs_mfn) = xc_dom_p2m(dom, dom->xenstore_pfn);
+            xs->mfn = xc_dom_p2m(dom, dom->xenstore_pfn);
         }
     }
 
-    if (console != NULL) {
+    if (console->active) {
         if (guest->hyp.info.xen->pvh) {
             console->mfn = dom->console_pfn;
         } else {
@@ -242,6 +269,11 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
     xc_dom_release(dom);
 
     return 0;
+
+    /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
+out_console_evtchn:
+
+out_xs_evtchn:
 
 out_dom:
     xc_dom_release(dom);
@@ -258,23 +290,4 @@ int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return xc_domain_unpause(ctx->xc.xci, guest->id);
-}
-
-int h2_xen_xc_evtchn_alloc_unbound(h2_xen_ctx* ctx,
-        domid_t lid, domid_t rid, evtchn_port_t* evtchn)
-{
-    int ret;
-
-    xc_evtchn_port_or_error_t ec_ret;
-
-    ret = 0;
-
-    ec_ret = xc_evtchn_alloc_unbound(ctx->xc.xci, lid, rid);
-    if (ec_ret == -1) {
-        ret = errno;
-    } else {
-        (*evtchn) = ec_ret;
-    }
-
-    return ret;
 }

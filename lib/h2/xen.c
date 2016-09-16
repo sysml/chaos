@@ -183,16 +183,23 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    bool xs_active;
-    unsigned int xs_mfn;
-    evtchn_port_t xs_evtchn;
+    h2_xen_xc_dev_info xc_xs;
+    h2_xen_xc_dev_info xc_console;
 
     h2_xen_dev* dev;
     h2_xen_dev_console* console;
 
+    xc_xs.active = ctx->xs.active && guest->hyp.info.xen->xs.active;
+    xc_xs.be_id = ctx->xs.domid;
 
-    xs_evtchn = 0;
-    xs_active = ctx->xs.active && guest->hyp.info.xen->xs.active;
+    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
+    if (dev != NULL) {
+        console = &(dev->dev.console);
+        xc_console.active = true;
+        xc_console.be_id = console->backend_id;
+    } else {
+        xc_console.active = false;
+    }
 
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
@@ -203,44 +210,21 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
             break;
     }
 
-    if (xs_active) {
-        switch (ctx->xlib) {
-            case h2_xen_xlib_t_xc:
-                ret = h2_xen_xc_evtchn_alloc_unbound(ctx, guest->id, ctx->xs.domid, &xs_evtchn);
-                if (ret) {
-                    goto out_dom;
-                }
-                break;
-        }
-    }
-
-    console = NULL;
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
-    if (dev != NULL) {
-        console = &(dev->dev.console);
-
-        switch (ctx->xlib) {
-            case h2_xen_xlib_t_xc:
-                ret = h2_xen_xc_evtchn_alloc_unbound(ctx, guest->id, console->backend_id,
-                        &(console->evtchn));
-                if (ret) {
-                    goto out_dom;
-                }
-                break;
-        }
-    }
-
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
-            ret = h2_xen_xc_domain_init(ctx, guest,
-                    xs_active, ctx->xs.domid, xs_evtchn, &xs_mfn, console);
+            ret = h2_xen_xc_domain_init(ctx, guest, &xc_xs, &xc_console);
             if (ret) {
                 goto out_dom;
             }
             break;
     }
 
-    if (xs_active) {
+    if (xc_console.active) {
+        console->evtchn = xc_console.evtchn;
+        console->mfn = xc_console.mfn;
+    }
+
+    if (xc_xs.active) {
         ret = h2_xen_xs_domain_create(ctx, guest);
         if (ret) {
             goto out_dom;
@@ -255,8 +239,8 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_dev;
     }
 
-    if (xs_active) {
-        ret = h2_xen_xs_domain_intro(ctx, guest, xs_evtchn, xs_mfn);
+    if (xc_xs.active) {
+        ret = h2_xen_xs_domain_intro(ctx, guest, xc_xs.evtchn, xc_xs.mfn);
         if (ret) {
             goto out_xs;
         }
@@ -280,7 +264,7 @@ out_dev:
     }
 
 out_xs:
-    if (xs_active) {
+    if (xc_xs.active) {
         h2_xen_xs_domain_destroy(ctx, guest);
     }
 

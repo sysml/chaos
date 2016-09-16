@@ -39,15 +39,23 @@
 
 #include <h2/h2.h>
 
+#include <xenctrl.h>
+
+
+struct h2_xen_xc_dev_info {
+    bool active;
+    domid_t be_id;
+
+    evtchn_port_t evtchn;
+    unsigned int mfn;
+};
+typedef struct h2_xen_xc_dev_info h2_xen_xc_dev_info;
+
 
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
-        bool xs_active, domid_t xs_domid, evtchn_port_t xs_evtchn, unsigned int* xs_mfn,
-        h2_xen_dev_console* console);
+        h2_xen_xc_dev_info* xs, h2_xen_xc_dev_info* console);
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
-
-int h2_xen_xc_evtchn_alloc_unbound(h2_xen_ctx* ctx,
-        domid_t lid, domid_t rid, evtchn_port_t* evtchn);
 
 #endif /* __H2__XEN__XC__H__ */
