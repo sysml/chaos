@@ -131,6 +131,8 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
     (*guest)->paused = conf->paused;
 
+    (*guest)->hyp.info.xen->pvh = conf->xen.pvh;
+
     (*guest)->hyp.info.xen->xs.active = true;
 
     (*guest)->hyp.info.xen->devs[0].type = h2_xen_dev_t_console;
