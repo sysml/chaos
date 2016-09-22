@@ -42,22 +42,31 @@
 #include <xenctrl.h>
 
 
-struct h2_xen_xc_dev_info {
-    bool active;
-    domid_t be_id;
+struct h2_xen_xc_dom {
+    struct {
+        bool active;
+        domid_t be_id;
 
-    evtchn_port_t evtchn;
-    unsigned int mfn;
+        evtchn_port_t evtchn;
+        unsigned int mfn;
+    } xs;
+
+    struct {
+        bool active;
+        domid_t be_id;
+
+        evtchn_port_t evtchn;
+        unsigned int mfn;
+    } console;
 };
-typedef struct h2_xen_xc_dev_info h2_xen_xc_dev_info;
+typedef struct h2_xen_xc_dom h2_xen_xc_dom;
 
 
 int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg);
 void h2_xen_xc_close(h2_xen_ctx* ctx);
 
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
-        h2_xen_xc_dev_info* xs, h2_xen_xc_dev_info* console);
+int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom);
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
 

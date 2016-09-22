@@ -161,22 +161,21 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    h2_xen_xc_dev_info xc_xs;
-    h2_xen_xc_dev_info xc_console;
+    h2_xen_xc_dom xc_dom;
 
     h2_xen_dev* dev;
     h2_xen_dev_console* console;
 
-    xc_xs.active = ctx->xs.active && guest->hyp.info.xen->xs.active;
-    xc_xs.be_id = ctx->xs.domid;
+    xc_dom.xs.active = ctx->xs.active && guest->hyp.info.xen->xs.active;
+    xc_dom.xs.be_id = ctx->xs.domid;
 
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
     if (dev != NULL) {
         console = &(dev->dev.console);
-        xc_console.active = true;
-        xc_console.be_id = console->backend_id;
+        xc_dom.console.active = true;
+        xc_dom.console.be_id = console->backend_id;
     } else {
-        xc_console.active = false;
+        xc_dom.console.active = false;
     }
 
     switch (ctx->xlib) {
@@ -190,19 +189,19 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
-            ret = h2_xen_xc_domain_init(ctx, guest, &xc_xs, &xc_console);
+            ret = h2_xen_xc_domain_init(ctx, guest, &xc_dom);
             if (ret) {
                 goto out_dom;
             }
             break;
     }
 
-    if (xc_console.active) {
-        console->evtchn = xc_console.evtchn;
-        console->mfn = xc_console.mfn;
+    if (xc_dom.console.active) {
+        console->evtchn = xc_dom.console.evtchn;
+        console->mfn = xc_dom.console.mfn;
     }
 
-    if (xc_xs.active) {
+    if (xc_dom.xs.active) {
         ret = h2_xen_xs_domain_create(ctx, guest);
         if (ret) {
             goto out_dom;
@@ -217,8 +216,8 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_dev;
     }
 
-    if (xc_xs.active) {
-        ret = h2_xen_xs_domain_intro(ctx, guest, xc_xs.evtchn, xc_xs.mfn);
+    if (xc_dom.xs.active) {
+        ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom.xs.evtchn, xc_dom.xs.mfn);
         if (ret) {
             goto out_xs;
         }
@@ -242,7 +241,7 @@ out_dev:
     }
 
 out_xs:
-    if (xc_xs.active) {
+    if (xc_dom.xs.active) {
         h2_xen_xs_domain_destroy(ctx, guest);
     }
 

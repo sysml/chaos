@@ -195,8 +195,7 @@ out_err:
     return ret;
 }
 
-int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
-        h2_xen_xc_dev_info* xs, h2_xen_xc_dev_info* console)
+int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
 {
     int ret;
 
@@ -219,22 +218,22 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
     }
 
 
-    if (xs->active) {
-        dom->xenstore_domid = xs->be_id;
-        ret = __evtchn_alloc_unbound(ctx, guest->id, xs->be_id, &(xs->evtchn));
+    if (h2_dom->xs.active) {
+        dom->xenstore_domid = h2_dom->xs.be_id;
+        ret = __evtchn_alloc_unbound(ctx, guest->id, h2_dom->xs.be_id, &(h2_dom->xs.evtchn));
         if (ret) {
             goto out_dom;
         }
-        dom->xenstore_evtchn = xs->evtchn;
+        dom->xenstore_evtchn = h2_dom->xs.evtchn;
     }
 
-    if (console->active) {
-        dom->console_domid = console->be_id;
-        ret = __evtchn_alloc_unbound(ctx, guest->id, console->be_id, &(console->evtchn));
+    if (h2_dom->console.active) {
+        dom->console_domid = h2_dom->console.be_id;
+        ret = __evtchn_alloc_unbound(ctx, guest->id, h2_dom->console.be_id, &(h2_dom->console.evtchn));
         if (ret) {
             goto out_xs_evtchn;
         }
-        dom->console_evtchn = console->evtchn;
+        dom->console_evtchn = h2_dom->console.evtchn;
     }
 
     dom->flags = 0;
@@ -302,19 +301,19 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
         goto out_console_evtchn;
     }
 
-    if (xs->active) {
+    if (h2_dom->xs.active) {
         if (guest->hyp.info.xen->pvh) {
-            xs->mfn = dom->xenstore_pfn;
+            h2_dom->xs.mfn = dom->xenstore_pfn;
         } else {
-            xs->mfn = xc_dom_p2m(dom, dom->xenstore_pfn);
+            h2_dom->xs.mfn = xc_dom_p2m(dom, dom->xenstore_pfn);
         }
     }
 
-    if (console->active) {
+    if (h2_dom->console.active) {
         if (guest->hyp.info.xen->pvh) {
-            console->mfn = dom->console_pfn;
+            h2_dom->console.mfn = dom->console_pfn;
         } else {
-            console->mfn = xc_dom_p2m(dom, dom->console_pfn);
+            h2_dom->console.mfn = xc_dom_p2m(dom, dom->console_pfn);
         }
     }
 
