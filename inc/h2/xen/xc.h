@@ -52,6 +52,9 @@ struct h2_xen_xc_dev_info {
 typedef struct h2_xen_xc_dev_info h2_xen_xc_dev_info;
 
 
+int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg);
+void h2_xen_xc_close(h2_xen_ctx* ctx);
+
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest,
         h2_xen_xc_dev_info* xs, h2_xen_xc_dev_info* console);

@@ -61,6 +61,60 @@ static int __evtchn_alloc_unbound(h2_xen_ctx* ctx, domid_t lid, domid_t rid, evt
     return ret;
 }
 
+int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg)
+{
+    int ret;
+
+    if (ctx == NULL || cfg == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    if (ctx->xlib != h2_xen_xlib_t_xc) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    /* FIXME: log level should be configurable. Keep debug while developing. */
+    ctx->xc.xtl = (xentoollog_logger*) xtl_createlogger_stdiostream(stderr, XTL_DEBUG, 0);
+    if (ctx->xc.xtl == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    ctx->xc.xci = xc_interface_open(ctx->xc.xtl, NULL, 0);
+    if (ctx->xc.xci == NULL) {
+        ret = errno;
+        goto out_xtl;
+    }
+
+    return 0;
+
+out_xtl:
+    xtl_logger_destroy(ctx->xc.xtl);
+    ctx->xc.xtl = NULL;
+
+out_err:
+    return ret;
+}
+
+void h2_xen_xc_close(h2_xen_ctx* ctx)
+{
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (ctx->xc.xci) {
+        xc_interface_close(ctx->xc.xci);
+        ctx->xc.xci = NULL;
+    }
+
+    if (ctx->xc.xtl) {
+        xtl_logger_destroy(ctx->xc.xtl);
+        ctx->xc.xtl = NULL;
+    }
+}
+
 
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {

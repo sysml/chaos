@@ -58,23 +58,13 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
     }
 
     (*ctx)->xlib = cfg->xlib;
-
     switch ((*ctx)->xlib) {
         case h2_xen_xlib_t_xc:
-            /* FIXME: log level should be configurable. Keep debug while developing. */
-            (*ctx)->xc.xtl = (xentoollog_logger*) xtl_createlogger_stdiostream(stderr,
-                    XTL_DEBUG, 0);
-            if ((*ctx)->xc.xtl == NULL) {
-                ret = errno;
-                goto out_mem;
-            }
-
-            (*ctx)->xc.xci = xc_interface_open((*ctx)->xc.xtl, NULL, 0);
-            if ((*ctx)->xc.xci == NULL) {
-                ret = errno;
-                goto out_dom;
-            }
+            ret = h2_xen_xc_open(*ctx, cfg);
             break;
+    }
+    if (ret) {
+        goto out_mem;
     }
 
     if (cfg->xs.active) {
@@ -84,22 +74,16 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
         (*ctx)->xs.xsh = xs_open(0);
         if ((*ctx)->xs.xsh == NULL) {
             ret = errno;
-            goto out_dom;
+            goto out_xlib;
         }
     }
 
     return 0;
 
-out_dom:
+out_xlib:
     switch ((*ctx)->xlib) {
         case h2_xen_xlib_t_xc:
-            if ((*ctx)->xc.xci) {
-                xc_interface_close((*ctx)->xc.xci);
-            }
-
-            if ((*ctx)->xc.xtl) {
-                xtl_logger_destroy((*ctx)->xc.xtl);
-            }
+            h2_xen_xc_close(*ctx);
             break;
     }
 
@@ -123,13 +107,7 @@ void h2_xen_close(h2_xen_ctx** ctx)
 
     switch ((*ctx)->xlib) {
         case h2_xen_xlib_t_xc:
-            if ((*ctx)->xc.xci) {
-                xc_interface_close((*ctx)->xc.xci);
-            }
-
-            if ((*ctx)->xc.xtl) {
-                xtl_logger_destroy((*ctx)->xc.xtl);
-            }
+            h2_xen_xc_close(*ctx);
             break;
     }
 
