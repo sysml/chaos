@@ -46,7 +46,7 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
 {
     int ret;
 
-    if (ctx == NULL) {
+    if (ctx == NULL || cfg == NULL) {
         ret = EINVAL;
         goto out_err;
     }
