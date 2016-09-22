@@ -246,7 +246,11 @@ out_xs:
     }
 
 out_dom:
-    h2_xen_xc_domain_destroy(ctx, guest);
+    switch (ctx->xlib) {
+        case h2_xen_xlib_t_xc:
+            h2_xen_xc_domain_destroy(ctx, guest);
+            break;
+    }
 
 out_err:
     return ret;
