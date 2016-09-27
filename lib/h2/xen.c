@@ -218,7 +218,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     if (xc_dom.xs.active) {
         ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom.xs.evtchn, xc_dom.xs.mfn);
         if (ret) {
-            goto out_xs;
+            goto out_dev;
         }
     }
 
@@ -227,7 +227,7 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
             case h2_xen_xlib_t_xc:
                 ret = h2_xen_xc_domain_unpause(ctx, guest);
                 if (ret) {
-                    goto out_xs;
+                    goto out_dev;
                 }
         }
     }
@@ -239,7 +239,6 @@ out_dev:
         h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
     }
 
-out_xs:
     if (xc_dom.xs.active) {
         h2_xen_xs_domain_destroy(ctx, guest);
     }
