@@ -71,9 +71,8 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
         (*ctx)->xs.active = true;
         (*ctx)->xs.domid = cfg->xs.domid;
 
-        (*ctx)->xs.xsh = xs_open(0);
-        if ((*ctx)->xs.xsh == NULL) {
-            ret = errno;
+        ret = h2_xen_xs_open(*ctx);
+        if (ret) {
             goto out_xlib;
         }
     }
@@ -101,8 +100,8 @@ void h2_xen_close(h2_xen_ctx** ctx)
         return;
     }
 
-    if ((*ctx)->xs.active && (*ctx)->xs.xsh) {
-        xs_close((*ctx)->xs.xsh);
+    if ((*ctx)->xs.active) {
+        h2_xen_xs_close(*ctx);
     }
 
     switch ((*ctx)->xlib) {

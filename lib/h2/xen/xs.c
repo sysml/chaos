@@ -221,6 +221,51 @@ out_path:
     return ret;
 }
 
+
+int h2_xen_xs_open(h2_xen_ctx* ctx)
+{
+    int ret;
+
+    if (ctx == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ctx->xs.xsh = xs_open(0);
+    if (ctx->xs.xsh == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
+int h2_xen_xs_close(h2_xen_ctx* ctx)
+{
+    int ret;
+
+    if (ctx == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    if (ctx->xs.xsh == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    xs_close(ctx->xs.xsh);
+    ctx->xs.xsh = NULL;
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
 int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
