@@ -59,6 +59,9 @@ int main(int argc, char** argv)
 
     hyp_cfg.xen.xs.domid = 0;
     hyp_cfg.xen.xs.active = true;
+#ifdef CONFIG_H2_XEN_NOXS
+    hyp_cfg.xen.noxs.active = true;
+#endif
     hyp_cfg.xen.xlib = h2_xen_xlib_t_xc;
 
     ret = h2_open(&ctx, h2_hyp_t_xen, &hyp_cfg);
