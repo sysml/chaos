@@ -37,6 +37,9 @@
 
 #include <h2/xen.h>
 #include <h2/xen/dev.h>
+#ifdef CONFIG_H2_XEN_NOXS
+#include <h2/xen/noxs.h>
+#endif
 #include <h2/xen/xc.h>
 #include <h2/xen/xs.h>
 
@@ -78,7 +81,25 @@ int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
         }
     }
 
+#ifdef CONFIG_H2_XEN_NOXS
+    if (cfg->noxs.active) {
+        (*ctx)->noxs.active = true;
+
+        ret = h2_xen_noxs_open(*ctx);
+        if (ret) {
+            goto out_xs;
+        }
+    }
+#endif
+
     return 0;
+
+#ifdef CONFIG_H2_XEN_NOXS
+out_xs:
+    if ((*ctx)->xs.active) {
+        h2_xen_xs_close(*ctx);
+    }
+#endif
 
 out_xlib:
     switch ((*ctx)->xlib) {
@@ -100,6 +121,12 @@ void h2_xen_close(h2_xen_ctx** ctx)
     if (ctx == NULL || (*ctx) == NULL) {
         return;
     }
+
+#ifdef CONFIG_H2_XEN_NOXS
+    if ((*ctx)->noxs.active) {
+        h2_xen_noxs_close(*ctx);
+    }
+#endif
 
     if ((*ctx)->xs.active) {
         h2_xen_xs_close(*ctx);
@@ -152,6 +179,15 @@ int h2_xen_guest_query(h2_xen_ctx* ctx, h2_guest* guest)
             goto out_err;
         }
     }
+
+#ifdef CONFIG_H2_XEN_NOXS
+    if (ctx->noxs.active) {
+        ret = h2_xen_noxs_probe_guest(ctx, guest);
+        if (ret) {
+            goto out_err;
+        }
+    }
+#endif
 
     ret = h2_xen_dev_enumerate(ctx, guest);
     if (ret) {

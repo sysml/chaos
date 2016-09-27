@@ -36,6 +36,9 @@
 
 #include <h2/xen/console.h>
 #include <h2/xen/dev.h>
+#ifdef CONFIG_H2_XEN_NOXS
+#include <h2/xen/noxs.h>
+#endif
 #include <h2/xen/vif.h>
 #include <h2/xen/xs.h>
 
@@ -89,6 +92,15 @@ int h2_xen_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
             goto out_err;
         }
     }
+
+#ifdef CONFIG_H2_XEN_NOXS
+    if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+        ret = h2_xen_noxs_dev_enumerate(ctx, guest);
+        if (ret) {
+            goto out_err;
+        }
+    }
+#endif
 
     return 0;
 

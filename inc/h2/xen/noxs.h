@@ -34,64 +34,22 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include <h2/xen/console.h>
-#ifdef CONFIG_H2_XEN_NOXS
-#include <h2/xen/noxs.h>
-#endif
-#include <h2/xen/xs.h>
+#ifndef __H2__XEN__NOXS__H__
+#define __H2__XEN__NOXS__H__
+
+#include <h2/h2.h>
 
 
-/* FIXME: Support adding more than one console. */
+int h2_xen_noxs_open(h2_xen_ctx* ctx);
+int h2_xen_noxs_close(h2_xen_ctx* ctx);
 
-int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
-{
-    int ret;
+int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
-    switch (console->meth) {
-        case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-                ret = h2_xen_xs_console_create(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-            break;
+int h2_xen_noxs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
+int h2_xen_noxs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
 
-#ifdef CONFIG_H2_XEN_NOXS
-        case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
-                ret = h2_xen_noxs_console_create(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-            break;
-#endif
-    }
+int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
+int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
 
-    return ret;
-}
-
-int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
-{
-    int ret;
-
-    switch (console->meth) {
-        case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-                ret = h2_xen_xs_console_destroy(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-            break;
-
-#ifdef CONFIG_H2_XEN_NOXS
-        case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
-                ret = h2_xen_noxs_console_destroy(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-#endif
-    }
-
-    return ret;
-}
+#endif /* __H2__XEN__NOXS__H__ */

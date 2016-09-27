@@ -43,8 +43,13 @@
 #include <errno.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <xenstore.h>
 #include <xenctrl.h>
+#ifdef CONFIG_H2_XEN_NOXS
+/* FIXME: Find out why this *has* to be included after xenctrl.h */
+#include <xen/io/noxs.h>
+#endif
 
 
 enum h2_xen_xlib_t {
@@ -57,6 +62,12 @@ struct h2_xen_cfg {
         bool active;
         domid_t domid;
     } xs;
+
+#ifdef CONFIG_H2_XEN_NOXS
+    struct {
+        bool active;
+    } noxs;
+#endif
 
     h2_xen_xlib_t xlib;
 };
@@ -74,6 +85,14 @@ struct h2_xen_ctx {
         xentoollog_logger *xtl;
     } xc;
 
+#ifdef CONFIG_H2_XEN_NOXS
+    struct {
+        bool active;
+
+        int fd;
+    } noxs;
+#endif
+
     h2_xen_xlib_t xlib;
 };
 typedef struct h2_xen_ctx h2_xen_ctx;
@@ -83,6 +102,9 @@ typedef struct h2_xen_ctx h2_xen_ctx;
 
 enum h2_xen_dev_meth_t {
     h2_xen_dev_meth_t_xs ,
+#ifdef CONFIG_H2_XEN_NOXS
+    h2_xen_dev_meth_t_noxs ,
+#endif
 };
 typedef enum h2_xen_dev_meth_t h2_xen_dev_meth_t;
 
@@ -130,6 +152,12 @@ struct h2_xen_guest {
         bool active;
         char* dom_path;
     } xs;
+
+#ifdef CONFIG_H2_XEN_NOXS
+    struct {
+        bool active;
+    } noxs;
+#endif
 
     bool pvh;
 

@@ -34,64 +34,48 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include <h2/xen/console.h>
-#ifdef CONFIG_H2_XEN_NOXS
 #include <h2/xen/noxs.h>
-#endif
-#include <h2/xen/xs.h>
 
 
-/* FIXME: Support adding more than one console. */
-
-int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+int h2_xen_noxs_open(h2_xen_ctx* ctx)
 {
-    int ret;
-
-    switch (console->meth) {
-        case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-                ret = h2_xen_xs_console_create(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-            break;
-
-#ifdef CONFIG_H2_XEN_NOXS
-        case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
-                ret = h2_xen_noxs_console_create(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-            break;
-#endif
-    }
-
-    return ret;
+    return ENOSYS;
 }
 
-int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+int h2_xen_noxs_close(h2_xen_ctx* ctx)
 {
-    int ret;
+    return ENOSYS;
+}
 
-    switch (console->meth) {
-        case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-                ret = h2_xen_xs_console_destroy(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-            break;
 
-#ifdef CONFIG_H2_XEN_NOXS
-        case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
-                ret = h2_xen_noxs_console_destroy(ctx, guest, console);
-            } else {
-                ret = EINVAL;
-            }
-#endif
-    }
+int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return ENOSYS;
+}
 
-    return ret;
+int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return ENOSYS;
+}
+
+
+int h2_xen_noxs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+{
+    return ENOSYS;
+}
+
+int h2_xen_noxs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+{
+    return ENOSYS;
+}
+
+
+int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
+{
+    return ENOSYS;
+}
+
+int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
+{
+    return ENOSYS;
 }
