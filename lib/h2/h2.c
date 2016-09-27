@@ -137,6 +137,40 @@ out_err:
     return ret;
 }
 
+int h2_guest_query(h2_ctx* ctx, h2_guest_id id, h2_guest** guest)
+{
+    int ret;
+
+    if (guest == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ret = h2_guest_alloc(guest, ctx->hyp.type);
+    if (ret) {
+        goto out_err;
+    }
+
+    (*guest)->id = id;
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_guest_query(ctx->hyp.ctx.xen, *guest);
+            break;
+    }
+    if (ret) {
+        goto out_guest;
+    }
+
+    return 0;
+
+out_guest:
+    h2_guest_free(guest);
+
+out_err:
+    return ret;
+}
+
 void h2_guest_free(h2_guest** guest)
 {
     if (guest == NULL || (*guest) == NULL) {
@@ -222,13 +256,13 @@ int h2_guest_create(h2_ctx* ctx, h2_guest* guest)
     return 0;
 }
 
-int h2_guest_destroy(h2_ctx* ctx, h2_guest_id id)
+int h2_guest_destroy(h2_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:
-            ret = h2_xen_domain_destroy(ctx->hyp.ctx.xen, id);
+            ret = h2_xen_domain_destroy(ctx->hyp.ctx.xen, guest);
             break;
         default:
             ret = EINVAL;

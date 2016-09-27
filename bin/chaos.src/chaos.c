@@ -85,10 +85,17 @@ int main(int argc, char** argv)
             break;
 
         case op_destroy:
-            ret = h2_guest_destroy(ctx, cmd.gid);
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
             if (ret) {
                 goto out_h2;
             }
+
+            ret = h2_guest_destroy(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
             break;
     }
 

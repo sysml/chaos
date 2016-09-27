@@ -137,6 +137,33 @@ out_err:
     return ret;
 }
 
+int h2_xen_guest_query(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    if (ctx == NULL || guest == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    if (ctx->xs.active) {
+        ret = h2_xen_xs_probe_guest(ctx, guest);
+        if (ret) {
+            goto out_err;
+        }
+    }
+
+    ret = h2_xen_dev_enumerate(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
 void h2_xen_guest_free(h2_xen_guest** guest)
 {
     if (guest == NULL || (*guest) == NULL) {
@@ -321,41 +348,16 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     return 0;
 }
 
-int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
+int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
     int _ret;
 
-    bool xs_active;
-
-    h2_guest* guest;
-
-    if (ctx == NULL) {
+    if (ctx == NULL || guest == NULL) {
         return EINVAL;
     }
 
-    ret = h2_guest_alloc(&guest, h2_hyp_t_xen);
-    if (ret) {
-        goto out;
-    }
-
-    guest->id = id;
-
-    if (ctx->xs.active) {
-        ret = h2_xen_xs_probe_guest(ctx, guest);
-        if (ret) {
-            goto out;
-        }
-        xs_active = guest->hyp.info.xen->xs.active;
-    } else {
-        xs_active = false;
-    }
-
-    ret = h2_xen_dev_enumerate(ctx, guest);
-    if (ret) {
-        goto out;
-    }
-
+    ret = 0;
 
     for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
         _ret = h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
@@ -364,7 +366,7 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
         }
     }
 
-    if (xs_active) {
+    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
         _ret = h2_xen_xs_domain_destroy(ctx, guest);
         if (_ret && !ret) {
             ret = _ret;
@@ -377,8 +379,5 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     }
 
 
-    h2_guest_free(&guest);
-
-out:
     return ret;
 }
