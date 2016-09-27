@@ -142,13 +142,13 @@ void h2_xen_guest_free(h2_xen_guest** guest)
         return;
     }
 
+    for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        h2_xen_dev_free(&((*guest)->devs[i]));
+    }
+
     if ((*guest)->xs.dom_path) {
         free((*guest)->xs.dom_path);
         (*guest)->xs.dom_path = NULL;
-    }
-
-    for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
-        h2_xen_dev_free(&((*guest)->devs[i]));
     }
 
     free(*guest);
