@@ -40,7 +40,9 @@
 #define _GNU_SOURCE
 
 #include <errno.h>
+#include <inttypes.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <xenstore.h>
@@ -204,8 +206,8 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
         dev->dev.vif.valid = true;
         dev->dev.vif.meth = h2_xen_dev_meth_t_xs;
         dev->dev.vif.backend_id = atoi(be_id_str);
-        dev->dev.vif.ip = NULL;
-        dev->dev.vif.mac = NULL;
+        /* FIXME: Fill dev->dev.vif.ip */
+        /* FIXME: Fill dev->dev.vif.mac */
         dev->dev.vif.bridge = NULL;
         dev->dev.vif.script = NULL;
 
@@ -562,6 +564,7 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     xs_transaction_t th;
 
     char* dev_id_str;
+    char* mac_str;
     char* fe_dom_path;
     char* fe_path;
     char* fe_id_str;
@@ -588,6 +591,8 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     be_perms[1].perms = XS_PERM_READ;
 
     asprintf(&dev_id_str, "%d", vif->id);
+    asprintf(&mac_str, "%2"SCNx8":%2"SCNx8":%2"SCNx8":%2"SCNx8":%2"SCNx8":%2"SCNx8,
+            vif->mac[0], vif->mac[1], vif->mac[2], vif->mac[3], vif->mac[4], vif->mac[5]);
 
     fe_dom_path = guest->hyp.info.xen->xs.dom_path;
     asprintf(&fe_path, "%s/device/%s/%s", fe_dom_path, "vif", dev_id_str);
@@ -631,11 +636,9 @@ th_start:
         goto th_end;
     }
 
-    if (vif->mac) {
-        ret = __write_kv(ctx, th, fe_path, "mac", vif->mac);
-        if (ret) {
-            goto th_end;
-        }
+    ret = __write_kv(ctx, th, fe_path, "mac", mac_str);
+    if (ret) {
+        goto th_end;
     }
 
     if (!xs_mkdir(ctx->xs.xsh, th, be_path)) {
@@ -670,11 +673,9 @@ th_start:
         }
     }
 
-    if (vif->ip) {
-        ret = __write_kv(ctx, th, be_path, "ip", vif->ip);
-        if (ret) {
-            goto th_end;
-        }
+    ret = __write_kv(ctx, th, be_path, "ip", inet_ntoa(vif->ip));
+    if (ret) {
+        goto th_end;
     }
 
     ret = __write_kv(ctx, th, be_path, "handle", dev_id_str);
@@ -682,11 +683,9 @@ th_start:
         goto th_end;
     }
 
-    if (vif->mac) {
-        ret = __write_kv(ctx, th, be_path, "mac", vif->mac);
-        if (ret) {
-            goto th_end;
-        }
+    ret = __write_kv(ctx, th, be_path, "mac", mac_str);
+    if (ret) {
+        goto th_end;
     }
 
     ret = __write_kv(ctx, th, be_path, "state", "1");
@@ -723,6 +722,7 @@ th_end:
     }
 
     free(dev_id_str);
+    free(mac_str);
     free(fe_path);
     free(fe_id_str);
     free(be_dom_path);

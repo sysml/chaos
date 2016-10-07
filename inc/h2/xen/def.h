@@ -39,7 +39,9 @@
 
 #define _GNU_SOURCE
 
+#include <arpa/inet.h>
 #include <errno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <xenstore.h>
 #include <xenctrl.h>
@@ -106,8 +108,8 @@ struct h2_xen_dev_vif {
     h2_xen_dev_meth_t meth;
 
     domid_t backend_id;
-    char* ip;
-    char* mac;
+    struct in_addr ip;
+    uint8_t mac[6];
     char* bridge;
     char* script;
 };

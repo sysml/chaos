@@ -36,7 +36,9 @@
 
 #include "config.h"
 
+#include <arpa/inet.h>
 #include <errno.h>
+#include <inttypes.h>
 #include <jansson.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -58,8 +60,10 @@ struct config {
 
     int vifs_nr;
     struct {
-        const char* ip;
-        const char* mac;
+        bool ip_set;
+        struct in_addr ip;
+        bool mac_set;
+        uint8_t mac[6];
         const char* bridge;
     } vifs[DEV_MAX_COUNT];
 
@@ -145,8 +149,9 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.id = i;
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.backend_id = 0;
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.meth = h2_xen_dev_meth_t_xs;
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.ip = strdup(conf->vifs[i].ip);
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.mac = strdup(conf->vifs[i].mac);
+        memcpy(&((*guest)->hyp.info.xen->devs[i + 1].dev.vif.ip), &(conf->vifs[i].ip),
+                sizeof(struct in_addr));
+        memcpy((*guest)->hyp.info.xen->devs[i + 1].dev.vif.mac, conf->vifs[i].mac, 6);
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.bridge = strdup(conf->vifs[i].bridge);
     }
 
@@ -154,6 +159,29 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
 out:
     return ret;
+}
+
+static int __parse_ip(struct in_addr* ip, const char* ip_str)
+{
+    if (inet_aton(ip_str, ip) == 0) {
+        return EINVAL;
+    }
+
+    return 0;
+}
+
+static int __parse_mac(uint8_t mac[6], const char* mac_str)
+{
+    int ret;
+
+    ret = sscanf(mac_str, "%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8,
+                &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+
+    if (ret != 6) {
+        return EINVAL;
+    }
+
+    return 0;
 }
 
 static int __parse_vif(json_t* vif, config* conf)
@@ -174,31 +202,47 @@ static int __parse_vif(json_t* vif, config* conf)
 
     json_object_foreach(vif, key, value) {
         if (strcmp(key, "ip") == 0) {
-            if (conf->vifs[vid].ip) {
+            if (conf->vifs[vid].ip_set) {
                 fprintf(stderr, "Parameter 'ip' defined multiple times.\n");
                 ret = EINVAL;
                 goto out;
             }
 
-            conf->vifs[vid].ip = json_string_value(value);
-            if (conf->vifs[vid].ip == NULL) {
+            const char* ip_str = json_string_value(value);
+            if (ip_str == NULL) {
                 fprintf(stderr, "Parameter 'ip' has invalid type, must be string.\n");
                 ret = EINVAL;
                 goto out;
             }
+
+            ret = __parse_ip(&(conf->vifs[vid].ip), ip_str);
+            if (ret) {
+                fprintf(stderr, "Parameter 'ip' is an invalid IP.\n");
+                ret = EINVAL;
+                goto out;
+            }
+            conf->vifs[vid].ip_set = true;
         } else if (strcmp(key, "mac") == 0) {
-            if (conf->vifs[vid].mac) {
+            if (conf->vifs[vid].mac_set) {
                 fprintf(stderr, "Parameter 'mac' defined multiple times.\n");
                 ret = EINVAL;
                 goto out;
             }
 
-            conf->vifs[vid].mac = json_string_value(value);
-            if (conf->vifs[vid].mac == NULL) {
+            const char* mac_str = json_string_value(value);
+            if (mac_str == NULL) {
                 fprintf(stderr, "Parameter 'mac' has invalid type, must be string.\n");
                 ret = EINVAL;
                 goto out;
             }
+
+            ret = __parse_mac(conf->vifs[vid].mac, mac_str);
+            if (ret) {
+                fprintf(stderr, "Parameter 'mac' is an invalid MAC.\n");
+                ret = EINVAL;
+                goto out;
+            }
+            conf->vifs[vid].mac_set = true;
         } else if (strcmp(key, "bridge") == 0) {
             if (conf->vifs[vid].bridge) {
                 fprintf(stderr, "Parameter 'bridge' defined multiple times.\n");

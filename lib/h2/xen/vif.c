@@ -40,16 +40,6 @@
 
 void h2_xen_vif_free(h2_xen_dev_vif* vif)
 {
-    if (vif->ip) {
-        free(vif->ip);
-        vif->ip = NULL;
-    }
-
-    if (vif->mac) {
-        free(vif->mac);
-        vif->mac = NULL;
-    }
-
     if (vif->bridge) {
         free(vif->bridge);
         vif->bridge = NULL;
