@@ -58,6 +58,7 @@ struct config {
 
     int vifs_nr;
     struct {
+        const char* ip;
         const char* mac;
         const char* bridge;
     } vifs[DEV_MAX_COUNT];
@@ -144,6 +145,7 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.id = i;
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.backend_id = 0;
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.meth = h2_xen_dev_meth_t_xs;
+        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.ip = strdup(conf->vifs[i].ip);
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.mac = strdup(conf->vifs[i].mac);
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.bridge = strdup(conf->vifs[i].bridge);
     }
@@ -171,7 +173,20 @@ static int __parse_vif(json_t* vif, config* conf)
     vid = conf->vifs_nr;
 
     json_object_foreach(vif, key, value) {
-        if (strcmp(key, "mac") == 0) {
+        if (strcmp(key, "ip") == 0) {
+            if (conf->vifs[vid].ip) {
+                fprintf(stderr, "Parameter 'ip' defined multiple times.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            conf->vifs[vid].ip = json_string_value(value);
+            if (conf->vifs[vid].ip == NULL) {
+                fprintf(stderr, "Parameter 'ip' has invalid type, must be string.\n");
+                ret = EINVAL;
+                goto out;
+            }
+        } else if (strcmp(key, "mac") == 0) {
             if (conf->vifs[vid].mac) {
                 fprintf(stderr, "Parameter 'mac' defined multiple times.\n");
                 ret = EINVAL;
