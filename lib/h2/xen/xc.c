@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -82,7 +83,7 @@ int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg)
         goto out_err;
     }
 
-    ctx->xc.xci = xc_interface_open(ctx->xc.xtl, NULL, 0);
+    ctx->xc.xci = xc_interface_open(ctx->xc.xtl, ctx->xc.xtl, 0);
     if (ctx->xc.xci == NULL) {
         ret = errno;
         goto out_xtl;
@@ -198,6 +199,23 @@ out_err:
     return ret;
 }
 
+static void __choose_guest_type(h2_guest* guest, struct xc_dom_image* dom)
+{
+    //TODO: do we need to differentiate between pv and pvh? 32-PAE vs non-PAE?
+    switch (guest->address_size) {
+        case 32:
+            dom->guest_type = "xen-3.0-x86_32";
+            break;
+        case 64:
+            dom->guest_type = "xen-3.0-x86_64";
+            break;
+        default:
+            dom->guest_type = "xen-3.0-unknown";
+    }
+}
+
+static struct timespec allin, allout;
+
 int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
 {
     int ret;
@@ -213,7 +231,6 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_do
             "|supervisor_mode_kernel"
             "|hvm_callback_vector";
     }
-
     dom = xc_dom_allocate(ctx->xc.xci, guest->cmdline, features);
     if (dom == NULL) {
         ret = errno;
@@ -244,6 +261,32 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_do
         dom->pvh_enabled = 1;
     }
 
+    ret = xc_dom_boot_xen_init(dom, ctx->xc.xci, guest->id);
+    if (ret) {
+        goto out_console_evtchn;
+    }
+
+#if defined(__arm__) || defined(__aarch64__)
+    ret = xc_dom_rambase_init(dom, GUEST_RAM_BASE);
+    if (ret) {
+        goto out_console_evtchn;
+    }
+#endif
+
+__choose_guest_type(guest, dom);
+
+    ret = xc_dom_mem_init(dom, guest->memory / 1024);
+    if (ret) {
+        goto out_console_evtchn;
+    }
+
+    ret = xc_dom_boot_mem_init(dom);
+    if (ret) {
+        goto out_console_evtchn;
+    }
+
+    xc_cpuid_apply_policy(ctx->xc.xci, guest->id, NULL, 0);
+
     switch (guest->kernel.type) {
         case h2_kernel_buff_t_mem:
             ret = xc_dom_kernel_mem(dom,
@@ -262,29 +305,7 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_do
         goto out_console_evtchn;
     }
 
-    ret = xc_dom_boot_xen_init(dom, ctx->xc.xci, guest->id);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-#if defined(__arm__) || defined(__aarch64__)
-    ret = xc_dom_rambase_init(dom, GUEST_RAM_BASE);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-#endif
-
     ret = xc_dom_parse_image(dom);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    ret = xc_dom_mem_init(dom, guest->memory / 1024);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    ret = xc_dom_boot_mem_init(dom);
     if (ret) {
         goto out_console_evtchn;
     }
@@ -319,8 +340,6 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_do
             h2_dom->console.mfn = xc_dom_p2m(dom, dom->console_pfn);
         }
     }
-
-    xc_cpuid_apply_policy(ctx->xc.xci, guest->id, NULL, 0);
 
     xc_dom_release(dom);
 

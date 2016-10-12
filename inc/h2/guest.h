@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -59,6 +60,7 @@ struct h2_guest {
     struct {
         int count;
     } vcpus;
+    uint address_size;
 
     struct {
         h2_kernel_buff_t type;
