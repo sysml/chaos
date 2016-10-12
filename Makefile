@@ -24,6 +24,8 @@ LIBH2_SO_MmB	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
 LIBH2_OBJ	:=
 LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2/ -name "*.c"))
 
+# cscope
+CSCOPE_FILES	:= cscope.files cscope.out cscope.in.out cscope.po.out
 
 # Default build flags
 CFLAGS		+= -Iinc
@@ -74,6 +76,9 @@ uninstall:
 
 configure: $(config)
 
+cscope:
+	$(call cmd, "CSCOPE", "", find . -name '*.c' -or -name '*.h' > cscope.files; cscope -b -q -k)
+
 clean:
 	$(call cmd, "CLEAN", "*.o", rm -rf, $(shell find -name "*.o"))
 	$(call cmd, "CLEAN", "*.d", rm -rf, $(shell find -name "*.d"))
@@ -83,8 +88,9 @@ distclean: clean
 	$(call cmd, "CLEAN", $(LIBH2_SO) , rm -f, lib/$(LIBH2_SO))
 	$(call cmd, "CLEAN", $(CHAOS_BIN), rm -f, bin/$(CHAOS_BIN))
 	$(call cmd, "CLEAN", $(config)   , rm -f, $(config))
+	$(call cmd, "CLEAN", "cscope files", rm -f, $(CSCOPE_FILES))
 
-.PHONY: all tests install uninstall configure clean distclean
+.PHONY: all tests install uninstall configure cscope clean distclean
 
 
 libh2: lib/$(LIBH2_SO) lib/$(LIBH2_A)
