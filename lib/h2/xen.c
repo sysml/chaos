@@ -210,7 +210,27 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
         console->mfn = xc_dom->console.mfn;
     }
 
+    if (xc_dom->xs.active) {
+        ret = h2_xen_xs_domain_create(ctx, guest);
+        if (ret) {
+            goto out_dom;
+        }
+    }
+
+    ret = 0;
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX && !ret; i++) {
+        ret = h2_xen_dev_create(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+    }
+    if (ret) {
+        goto out_dev;
+    }
+
     return 0;
+
+out_dev:
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+    }
 
 out_dom:
     switch (ctx->xlib) {
@@ -244,24 +264,9 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     if (xc_dom->xs.active) {
-        ret = h2_xen_xs_domain_create(ctx, guest);
-        if (ret) {
-            goto out_dom;
-        }
-    }
-
-    ret = 0;
-    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX && !ret; i++) {
-        ret = h2_xen_dev_create(ctx, guest, &(guest->hyp.info.xen->devs[i]));
-    }
-    if (ret) {
-        goto out_dev;
-    }
-
-    if (xc_dom->xs.active) {
         ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom->xs.evtchn, xc_dom->xs.mfn);
         if (ret) {
-            goto out_dev;
+            goto out_xs;
         }
     }
 
@@ -270,18 +275,14 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
             case h2_xen_xlib_t_xc:
                 ret = h2_xen_xc_domain_unpause(ctx, guest);
                 if (ret) {
-                    goto out_dev;
+                    goto out_xs;
                 }
         }
     }
 
     return 0;
 
-out_dev:
-    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
-        h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
-    }
-
+out_xs:
     if (xc_dom->xs.active) {
         h2_xen_xs_domain_destroy(ctx, guest);
     }
