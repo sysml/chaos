@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -46,6 +47,8 @@ void h2_xen_close(h2_xen_ctx** ctx);
 int h2_xen_guest_alloc(h2_xen_guest** guest);
 void h2_xen_guest_free(h2_xen_guest** guest);
 
+int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id);
 

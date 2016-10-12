@@ -75,6 +75,9 @@ struct h2_guest {
 
     bool paused;
 
+    /* xlib-specific information, e.g., struct h2_xen_xc_dom* */
+    void* xlib_priv;
+
     h2_hyp_guest hyp;
 };
 typedef struct h2_guest h2_guest;

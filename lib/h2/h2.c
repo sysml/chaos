@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -150,6 +151,11 @@ void h2_guest_free(h2_guest** guest)
     if ((*guest)->cmdline) {
         free((*guest)->cmdline);
         (*guest)->cmdline = NULL;
+    }
+
+    if ((*guest)->xlib_priv) {
+        free((*guest)->xlib_priv);
+        (*guest)->xlib_priv = NULL;
     }
 
     switch ((*guest)->kernel.type) {
