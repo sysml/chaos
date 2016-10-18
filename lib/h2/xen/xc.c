@@ -127,6 +127,9 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     /* NOTE: H2 only supports PV or PVH guests */
 
+    /* Setting domid to 0 will tell the hypervisor to auto-allocate an id. */
+    domid = 0;
+
     flags = 0;
     dom_config.emulation_flags = 0;
 
