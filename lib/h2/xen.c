@@ -165,6 +165,11 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     h2_xen_dev* dev;
     h2_xen_dev_console* console;
 
+    if (ctx == NULL || guest == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
     xc_dom.xs.active = ctx->xs.active && guest->hyp.info.xen->xs.active;
     xc_dom.xs.be_id = ctx->xs.domid;
 
@@ -262,6 +267,10 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
     bool xs_active;
 
     h2_guest* guest;
+
+    if (ctx == NULL) {
+        return EINVAL;
+    }
 
     ret = h2_guest_alloc(&guest, h2_hyp_t_xen);
     if (ret) {
