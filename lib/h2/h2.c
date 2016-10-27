@@ -153,11 +153,6 @@ void h2_guest_free(h2_guest** guest)
         (*guest)->cmdline = NULL;
     }
 
-    if ((*guest)->xlib_priv) {
-        free((*guest)->xlib_priv);
-        (*guest)->xlib_priv = NULL;
-    }
-
     switch ((*guest)->kernel.type) {
         case h2_kernel_buff_t_file:
             free((*guest)->kernel.buff.path);

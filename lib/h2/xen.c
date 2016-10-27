@@ -152,6 +152,11 @@ void h2_xen_guest_free(h2_xen_guest** guest)
         (*guest)->xs.dom_path = NULL;
     }
 
+    if ((*guest)->xlib_priv) {
+        free((*guest)->xlib_priv);
+        (*guest)->xlib_priv = NULL;
+    }
+
     free(*guest);
     (*guest) = NULL;
 }
@@ -173,9 +178,9 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
     if (!xc_dom) {
         return -ENOMEM;
     }
-    guest->xlib_priv = xc_dom;
+    guest->hyp.info.xen->xlib_priv = xc_dom;
 
-    xc_dom->xs.active = ctx->xs.active && guest->hyp.info.xen->xs.active;
+    xc_dom->xs.active = (ctx->xs.active && guest->hyp.info.xen->xs.active);
     xc_dom->xs.be_id = ctx->xs.domid;
 
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
@@ -249,13 +254,14 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
     int ret;
     h2_xen_xc_dom* xc_dom;
 
-    if ((!ctx) || (!guest) || (!guest->xlib_priv)) {
+    if ((!ctx) || (!guest) || (!guest->hyp.info.xen) || (!guest->hyp.info.xen->xlib_priv)) {
         return -EINVAL;
     }
 
+    xc_dom = guest->hyp.info.xen->xlib_priv;
+
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
-            xc_dom = guest->xlib_priv;
             ret = h2_xen_xc_domain_fastboot(ctx, guest, xc_dom);
             if (ret) {
                 goto out_dom;

@@ -133,6 +133,9 @@ struct h2_xen_guest {
 
     bool pvh;
 
+    /* xlib-specific information, e.g., struct h2_xen_xc_dom* */
+    void* xlib_priv;
+
     h2_xen_dev devs[H2_XEN_DEV_COUNT_MAX];
 };
 typedef struct h2_xen_guest h2_xen_guest;
