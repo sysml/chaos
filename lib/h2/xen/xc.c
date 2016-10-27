@@ -376,24 +376,6 @@ release_image:
     return ret;
 }
 
-int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
-{
-
-    int ret;
-
-    ret = h2_xen_xc_domain_preinit(ctx, guest, h2_dom);
-    if (ret) {
-        return ret;
-    }
-
-    ret = h2_xen_xc_domain_fastboot(ctx, guest, h2_dom);
-    if (ret) {
-        return ret;
-    }
-
-    return 0;
-}
-
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return xc_domain_destroy(ctx->xc.xci, guest->id);

@@ -70,7 +70,6 @@ void h2_xen_xc_close(h2_xen_ctx* ctx);
 int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom);
 int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom);
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom);
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
 
