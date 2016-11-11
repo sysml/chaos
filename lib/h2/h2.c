@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -172,14 +173,13 @@ void h2_guest_free(h2_guest** guest)
     (*guest) = NULL;
 }
 
-
-int h2_guest_create(h2_ctx* ctx, h2_guest* guest)
+int h2_guest_precreate(h2_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:
-            ret = h2_xen_domain_create(ctx->hyp.ctx.xen, guest);
+            ret = h2_xen_domain_precreate(ctx->hyp.ctx.xen, guest);
             break;
         default:
             ret = EINVAL;
@@ -187,6 +187,39 @@ int h2_guest_create(h2_ctx* ctx, h2_guest* guest)
     }
 
     return ret;
+}
+
+int h2_guest_fastboot(h2_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_domain_fastboot(ctx->hyp.ctx.xen, guest);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+    return ret;
+}
+
+int h2_guest_create(h2_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    ret = h2_guest_precreate(ctx, guest);
+    if (ret) {
+        return ret;
+    }
+
+    ret = h2_guest_fastboot(ctx, guest);
+    if (ret) {
+        return ret;
+    }
+
+    return 0;
 }
 
 int h2_guest_destroy(h2_ctx* ctx, h2_guest_id id)

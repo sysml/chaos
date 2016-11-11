@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -82,7 +83,7 @@ int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg)
         goto out_err;
     }
 
-    ctx->xc.xci = xc_interface_open(ctx->xc.xtl, NULL, 0);
+    ctx->xc.xci = xc_interface_open(ctx->xc.xtl, ctx->xc.xtl, 0);
     if (ctx->xc.xci == NULL) {
         ret = errno;
         goto out_xtl;
@@ -198,12 +199,26 @@ out_err:
     return ret;
 }
 
-int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
+static void __choose_guest_type(h2_guest* guest, struct xc_dom_image* dom)
+{
+    //TODO: do we need to differentiate between pv and pvh? 32-PAE vs non-PAE?
+    switch (guest->address_size) {
+        case 32:
+            dom->guest_type = "xen-3.0-x86_32";
+            break;
+        case 64:
+            dom->guest_type = "xen-3.0-x86_64";
+            break;
+        default:
+            dom->guest_type = "xen-3.0-unknown";
+    }
+}
+
+int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
 {
     int ret;
-
     char* features;
-    struct xc_dom_image* dom;
+    struct xc_dom_image* img;
 
     features = NULL;
     if (guest->hyp.info.xen->pvh) {
@@ -213,117 +228,63 @@ int h2_xen_xc_domain_init(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_do
             "|supervisor_mode_kernel"
             "|hvm_callback_vector";
     }
-
-    dom = xc_dom_allocate(ctx->xc.xci, guest->cmdline, features);
-    if (dom == NULL) {
+    img = xc_dom_allocate(ctx->xc.xci, guest->cmdline, features);
+    if (img == NULL) {
         ret = errno;
         goto out_err;
     }
 
 
     if (h2_dom->xs.active) {
-        dom->xenstore_domid = h2_dom->xs.be_id;
+        img->xenstore_domid = h2_dom->xs.be_id;
         ret = __evtchn_alloc_unbound(ctx, guest->id, h2_dom->xs.be_id, &(h2_dom->xs.evtchn));
         if (ret) {
             goto out_dom;
         }
-        dom->xenstore_evtchn = h2_dom->xs.evtchn;
+        img->xenstore_evtchn = h2_dom->xs.evtchn;
     }
 
     if (h2_dom->console.active) {
-        dom->console_domid = h2_dom->console.be_id;
+        img->console_domid = h2_dom->console.be_id;
         ret = __evtchn_alloc_unbound(ctx, guest->id, h2_dom->console.be_id, &(h2_dom->console.evtchn));
         if (ret) {
             goto out_xs_evtchn;
         }
-        dom->console_evtchn = h2_dom->console.evtchn;
+        img->console_evtchn = h2_dom->console.evtchn;
     }
 
-    dom->flags = 0;
+    img->flags = 0;
     if (guest->hyp.info.xen->pvh) {
-        dom->pvh_enabled = 1;
+        img->pvh_enabled = 1;
     }
 
-    switch (guest->kernel.type) {
-        case h2_kernel_buff_t_mem:
-            ret = xc_dom_kernel_mem(dom,
-                    guest->kernel.buff.mem.ptr, guest->kernel.buff.mem.size);
-            break;
-
-        case h2_kernel_buff_t_file:
-            ret = xc_dom_kernel_file(dom, guest->kernel.buff.path);
-            break;
-
-        default:
-            ret = EINVAL;
-            break;
-    }
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    ret = xc_dom_boot_xen_init(dom, ctx->xc.xci, guest->id);
+    ret = xc_dom_boot_xen_init(img, ctx->xc.xci, guest->id);
     if (ret) {
         goto out_console_evtchn;
     }
 
 #if defined(__arm__) || defined(__aarch64__)
-    ret = xc_dom_rambase_init(dom, GUEST_RAM_BASE);
+    ret = xc_dom_rambase_init(img, GUEST_RAM_BASE);
     if (ret) {
         goto out_console_evtchn;
     }
 #endif
 
-    ret = xc_dom_parse_image(dom);
+    __choose_guest_type(guest, img);
+
+    ret = xc_dom_mem_init(img, guest->memory / 1024);
     if (ret) {
         goto out_console_evtchn;
     }
 
-    ret = xc_dom_mem_init(dom, guest->memory / 1024);
+    ret = xc_dom_boot_mem_init(img);
     if (ret) {
         goto out_console_evtchn;
-    }
-
-    ret = xc_dom_boot_mem_init(dom);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    ret = xc_dom_build_image(dom);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    ret = xc_dom_boot_image(dom);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    ret = xc_dom_gnttab_init(dom);
-    if (ret) {
-        goto out_console_evtchn;
-    }
-
-    if (h2_dom->xs.active) {
-        if (guest->hyp.info.xen->pvh) {
-            h2_dom->xs.mfn = dom->xenstore_pfn;
-        } else {
-            h2_dom->xs.mfn = xc_dom_p2m(dom, dom->xenstore_pfn);
-        }
-    }
-
-    if (h2_dom->console.active) {
-        if (guest->hyp.info.xen->pvh) {
-            h2_dom->console.mfn = dom->console_pfn;
-        } else {
-            h2_dom->console.mfn = xc_dom_p2m(dom, dom->console_pfn);
-        }
     }
 
     xc_cpuid_apply_policy(ctx->xc.xci, guest->id, NULL, 0);
 
-    xc_dom_release(dom);
-
+    h2_dom->image = img;
     return 0;
 
     /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
@@ -332,9 +293,86 @@ out_console_evtchn:
 out_xs_evtchn:
 
 out_dom:
-    xc_dom_release(dom);
+    xc_dom_release(img);
 
 out_err:
+    h2_dom->image = NULL;
+    return ret;
+}
+
+int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
+{
+    int ret;
+    struct xc_dom_image* img;
+
+    if (!h2_dom->image) {
+        ret = -EINVAL;
+        goto release_image;
+    }
+
+    img = h2_dom->image;
+
+    switch (guest->kernel.type) {
+        case h2_kernel_buff_t_mem:
+            ret = xc_dom_kernel_mem(img,
+                    guest->kernel.buff.mem.ptr, guest->kernel.buff.mem.size);
+            break;
+
+        case h2_kernel_buff_t_file:
+            ret = xc_dom_kernel_file(img, guest->kernel.buff.path);
+            break;
+
+        default:
+            ret = EINVAL;
+            break;
+    }
+    if (ret) {
+        goto release_image;
+    }
+
+    ret = xc_dom_parse_image(img);
+    if (ret) {
+        goto release_image;
+    }
+
+    ret = xc_dom_build_image(img);
+    if (ret) {
+        goto release_image;
+    }
+
+    ret = xc_dom_boot_image(img);
+    if (ret) {
+        goto release_image;
+    }
+
+    ret = xc_dom_gnttab_init(img);
+    if (ret) {
+        goto release_image;
+    }
+
+    if (h2_dom->xs.active) {
+        if (guest->hyp.info.xen->pvh) {
+            h2_dom->xs.mfn = img->xenstore_pfn;
+        } else {
+            h2_dom->xs.mfn = xc_dom_p2m(img, img->xenstore_pfn);
+        }
+    }
+
+    if (h2_dom->console.active) {
+        if (guest->hyp.info.xen->pvh) {
+            h2_dom->console.mfn = img->console_pfn;
+        } else {
+            h2_dom->console.mfn = xc_dom_p2m(img, img->console_pfn);
+        }
+    }
+
+    xc_dom_release(img);
+
+    return 0;
+
+    /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
+release_image:
+    xc_dom_release(img);
     return ret;
 }
 

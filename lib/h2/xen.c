@@ -2,6 +2,7 @@
  * chaos
  *
  * Authors: Filipe Manco <filipe.manco@neclab.eu>
+ *          Florian Schmidt <florian.schmidt@neclab.eu>
  *
  *
  * Copyright (c) 2016, NEC Europe Ltd., NEC Corporation All rights reserved.
@@ -151,17 +152,20 @@ void h2_xen_guest_free(h2_xen_guest** guest)
         (*guest)->xs.dom_path = NULL;
     }
 
+    if ((*guest)->xlib_priv) {
+        free((*guest)->xlib_priv);
+        (*guest)->xlib_priv = NULL;
+    }
+
     free(*guest);
     (*guest) = NULL;
 }
 
-
-int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    h2_xen_xc_dom xc_dom;
-
+    h2_xen_xc_dom* xc_dom;
     h2_xen_dev* dev;
     h2_xen_dev_console* console;
 
@@ -170,16 +174,22 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
-    xc_dom.xs.active = ctx->xs.active && guest->hyp.info.xen->xs.active;
-    xc_dom.xs.be_id = ctx->xs.domid;
+    xc_dom = malloc(sizeof(h2_xen_xc_dom));
+    if (!xc_dom) {
+        return -ENOMEM;
+    }
+    guest->hyp.info.xen->xlib_priv = xc_dom;
+
+    xc_dom->xs.active = (ctx->xs.active && guest->hyp.info.xen->xs.active);
+    xc_dom->xs.be_id = ctx->xs.domid;
 
     dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
     if (dev != NULL) {
         console = &(dev->dev.console);
-        xc_dom.console.active = true;
-        xc_dom.console.be_id = console->backend_id;
+        xc_dom->console.active = true;
+        xc_dom->console.be_id = console->backend_id;
     } else {
-        xc_dom.console.active = false;
+        xc_dom->console.active = false;
     }
 
     switch (ctx->xlib) {
@@ -193,19 +203,19 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
-            ret = h2_xen_xc_domain_init(ctx, guest, &xc_dom);
+            ret = h2_xen_xc_domain_preinit(ctx, guest, xc_dom);
             if (ret) {
                 goto out_dom;
             }
             break;
     }
 
-    if (xc_dom.console.active) {
-        console->evtchn = xc_dom.console.evtchn;
-        console->mfn = xc_dom.console.mfn;
+    if (xc_dom->console.active) {
+        console->evtchn = xc_dom->console.evtchn;
+        console->mfn = xc_dom->console.mfn;
     }
 
-    if (xc_dom.xs.active) {
+    if (xc_dom->xs.active) {
         ret = h2_xen_xs_domain_create(ctx, guest);
         if (ret) {
             goto out_dom;
@@ -220,32 +230,11 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_dev;
     }
 
-    if (xc_dom.xs.active) {
-        ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom.xs.evtchn, xc_dom.xs.mfn);
-        if (ret) {
-            goto out_dev;
-        }
-    }
-
-    if (!guest->paused) {
-        switch (ctx->xlib) {
-            case h2_xen_xlib_t_xc:
-                ret = h2_xen_xc_domain_unpause(ctx, guest);
-                if (ret) {
-                    goto out_dev;
-                }
-        }
-    }
-
     return 0;
 
 out_dev:
     for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
         h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
-    }
-
-    if (xc_dom.xs.active) {
-        h2_xen_xs_domain_destroy(ctx, guest);
     }
 
 out_dom:
@@ -256,7 +245,79 @@ out_dom:
     }
 
 out_err:
+    free(xc_dom);
     return ret;
+}
+
+int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+    h2_xen_xc_dom* xc_dom;
+
+    if ((!ctx) || (!guest) || (!guest->hyp.info.xen) || (!guest->hyp.info.xen->xlib_priv)) {
+        return -EINVAL;
+    }
+
+    xc_dom = guest->hyp.info.xen->xlib_priv;
+
+    switch (ctx->xlib) {
+        case h2_xen_xlib_t_xc:
+            ret = h2_xen_xc_domain_fastboot(ctx, guest, xc_dom);
+            if (ret) {
+                goto out_dom;
+            }
+            break;
+    }
+
+    if (xc_dom->xs.active) {
+        ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom->xs.evtchn, xc_dom->xs.mfn);
+        if (ret) {
+            goto out_xs;
+        }
+    }
+
+    if (!guest->paused) {
+        switch (ctx->xlib) {
+            case h2_xen_xlib_t_xc:
+                ret = h2_xen_xc_domain_unpause(ctx, guest);
+                if (ret) {
+                    goto out_xs;
+                }
+        }
+    }
+
+    return 0;
+
+out_xs:
+    if (xc_dom->xs.active) {
+        h2_xen_xs_domain_destroy(ctx, guest);
+    }
+
+out_dom:
+    switch (ctx->xlib) {
+        case h2_xen_xlib_t_xc:
+            h2_xen_xc_domain_destroy(ctx, guest);
+            break;
+    }
+
+    return ret;
+}
+
+int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    ret = h2_xen_domain_precreate(ctx, guest);
+    if (ret) {
+        return ret;
+    }
+
+    ret = h2_xen_domain_fastboot(ctx, guest);
+    if (ret) {
+        return ret;
+    }
+
+    return 0;
 }
 
 int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest_id id)
