@@ -58,6 +58,9 @@ struct config {
     bool vcpus_set;
     unsigned int vcpus;
 
+    bool address_size_set;
+    unsigned int address_size;
+
     int vifs_nr;
     struct {
         bool ip_set;
@@ -82,6 +85,8 @@ typedef struct config config;
 static void __init(config* conf)
 {
     memset(conf, 0, sizeof(config));
+
+    conf->address_size = 64;
 }
 
 static int __check(config* conf)
@@ -133,6 +138,7 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
     (*guest)->memory = conf->memory * 1024;
     (*guest)->vcpus.count = conf->vcpus;
+    (*guest)->address_size = conf->address_size;
 
     (*guest)->paused = conf->paused;
 
@@ -396,6 +402,21 @@ static int __parse_root(json_t* root, config* conf)
                 ret = EINVAL;
                 goto out;
             }
+        } else if (strcmp(key, "address_size") == 0) {
+            if (conf->address_size_set) {
+                fprintf(stderr, "Parameter 'address_size' defined multiple times.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            /* It's okay to call without check type, returns 0. */
+            conf->address_size = json_integer_value(value);
+            if (conf->address_size != 32 && conf->address_size != 64) {
+                fprintf(stderr, "Parameter 'vpcus' is invalid, must be positive integer.\n");
+                ret = EINVAL;
+                goto out;
+            }
+            conf->address_size_set = true;
         } else if (strcmp(key, "vifs") == 0) {
             if (conf->vifs_nr) {
                 fprintf(stderr, "Parameter 'vifs' defined multiple times.\n");
