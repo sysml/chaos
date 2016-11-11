@@ -178,7 +178,6 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
     if (!xc_dom) {
         return -ENOMEM;
     }
-    guest->hyp.info.xen->xlib_priv = xc_dom;
 
     xc_dom->xs.active = (ctx->xs.active && guest->hyp.info.xen->xs.active);
     xc_dom->xs.be_id = ctx->xs.domid;
@@ -229,6 +228,8 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
     if (ret) {
         goto out_dev;
     }
+
+    guest->hyp.info.xen->xlib_priv = xc_dom;
 
     return 0;
 
