@@ -26,10 +26,6 @@ aren't installed.
 2. Edit `.config` appropriately
 3. Run `make`
 
-Note: the makefile has targets to build only `chaos` or `libh2`. However
-`make chaos` doesn't directly depend on libh2 so you need to make the lib
-first. See the Makefile for details.
-
 
 # Install
 

@@ -104,20 +104,19 @@ chaos: bin/$(CHAOS_BIN)
 $(config): config.in
 	$(call cmd, "CONFIG", $@, cp -n, $^ $@)
 
-# Basically bin/$(CHAOS_BIN) should depend on lib/$(LIBH2_SO) so that the library gets built before
-# bin/$(CHAOS_BIN). However, if the lib gets built as a dependency of bin$(CHAOS_BIN) LDFLAGS will
-# contain -lh2 which will obviously make the build fail. I really have no time or patience to deal
-# with make so for the time being just ignore the problem and document it in README.md.
 bin/$(CHAOS_BIN): LDFLAGS += -ljansson
 bin/$(CHAOS_BIN): LDFLAGS += $(LIBH2_DEP_LDFLAGS)
-bin/$(CHAOS_BIN): $(CHAOS_OBJ)
-	$(call clink, $^, $@)
+bin/$(CHAOS_BIN): $(CHAOS_OBJ) lib/$(LIBH2_SO)
+	$(call clink, $(CHAOS_OBJ), $@)
 
 $(CHAOS_OBJ): CFLAGS += $(LIBH2_DEP_CFLAGS)
 
 lib/$(LIBH2_SO): LDFLAGS += -shared
 lib/$(LIBH2_SO): LDFLAGS += -Wl,-soname,$(LIBH2_SO_M)
+# Because lib/$(LIBH2_SO) may be built as a dependency of bin/$(CHAOS_BIN) $(LDFLAGS) might contain
+# $(LIBH2_DEP_LDFLAGS). We must ensure that is removed before linking lib/$(LIBH2_SO).
 lib/$(LIBH2_SO): LDFLAGS += $(XEN_LDFLAGS)
+lib/$(LIBH2_SO): LDFLAGS := $(filter-out $(LIBH2_DEP_LDFLAGS), $(LDFLAGS))
 lib/$(LIBH2_SO): $(LIBH2_OBJ)
 	$(call clink, $^, $@)
 
