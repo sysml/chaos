@@ -34,6 +34,9 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
+#ifdef CONFIG_H2_XEN_NOXS
+#include <h2/xen/noxs.h>
+#endif
 #include <h2/xen/vif.h>
 #include <h2/xen/xs.h>
 
@@ -72,6 +75,19 @@ int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
                 ret = EINVAL;
             }
             break;
+
+#ifdef CONFIG_H2_XEN_NOXS
+        case h2_xen_dev_meth_t_noxs:
+            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+                ret = h2_xen_noxs_vif_create(ctx, guest, vif);
+                if (!ret) {
+                    vif->valid = true;
+                }
+            } else {
+                ret = EINVAL;
+            }
+            break;
+#endif
     }
 
 out:
@@ -98,6 +114,19 @@ int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
                 ret = EINVAL;
             }
             break;
+
+#ifdef CONFIG_H2_XEN_NOXS
+        case h2_xen_dev_meth_t_noxs:
+            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+                ret = h2_xen_noxs_vif_destroy(ctx, guest, vif);
+                if (!ret) {
+                    vif->valid = false;
+                }
+            } else {
+                ret = EINVAL;
+            }
+            break;
+#endif
     }
 
 out:

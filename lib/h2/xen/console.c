@@ -35,6 +35,9 @@
  */
 
 #include <h2/xen/console.h>
+#ifdef CONFIG_H2_XEN_NOXS
+#include <h2/xen/noxs.h>
+#endif
 #include <h2/xen/xs.h>
 
 
@@ -52,6 +55,16 @@ int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* 
                 ret = EINVAL;
             }
             break;
+
+#ifdef CONFIG_H2_XEN_NOXS
+        case h2_xen_dev_meth_t_noxs:
+            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+                ret = h2_xen_noxs_console_create(ctx, guest, console);
+            } else {
+                ret = EINVAL;
+            }
+            break;
+#endif
     }
 
     return ret;
@@ -69,6 +82,15 @@ int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console*
                 ret = EINVAL;
             }
             break;
+
+#ifdef CONFIG_H2_XEN_NOXS
+        case h2_xen_dev_meth_t_noxs:
+            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+                ret = h2_xen_noxs_console_destroy(ctx, guest, console);
+            } else {
+                ret = EINVAL;
+            }
+#endif
     }
 
     return ret;

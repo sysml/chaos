@@ -10,7 +10,9 @@ endif
 # Applications
 CHAOS_BIN	:= chaos
 CHAOS_OBJ	:=
-CHAOS_OBJ	+= $(patsubst %.c, %.o, $(shell find bin/chaos.src/ -name "*.c"))
+CHAOS_OBJ	+= bin/chaos.src/config.o
+CHAOS_OBJ	+= bin/chaos.src/cmdline.o
+CHAOS_OBJ	+= bin/chaos.src/chaos.o
 
 # Tests
 
@@ -22,15 +24,30 @@ LIBH2_SO_Mm		:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR)
 LIBH2_SO_MmB	:= $(LIBH2_SO).$(LIBH2_V_MAJOR).$(LIBH2_V_MINOR).$(LIBH2_V_BUGFIX)
 
 LIBH2_OBJ	:=
-LIBH2_OBJ	+= $(patsubst %.c, %.o, $(shell find lib/h2/ -name "*.c"))
+LIBH2_OBJ	+= lib/h2/xen/xc.o
+LIBH2_OBJ	+= lib/h2/xen/dev.o
+LIBH2_OBJ	+= lib/h2/xen/vif.o
+LIBH2_OBJ	+= lib/h2/xen/xs.o
+LIBH2_OBJ	+= lib/h2/xen/console.o
+LIBH2_OBJ	+= lib/h2/h2.o
+LIBH2_OBJ	+= lib/h2/xen.o
+ifeq ($(CONFIG_H2_XEN_NOXS),y)
+LIBH2_OBJ	+= lib/h2/xen/noxs.o
+endif
 
 # cscope
 CSCOPE_FILES	:= cscope.files cscope.out cscope.in.out cscope.po.out
 
 # Default build flags
 CFLAGS		+= -Iinc
+ifneq ($(LINUX_HEADERS),)
+CFLAGS		+= -I$(LINUX_HEADERS)
+endif
 CFLAGS		+= -std=gnu11
 CFLAGS		+= -Wall -MD -MP -g
+ifeq ($(CONFIG_H2_XEN_NOXS),y)
+CFLAGS		+= -DCONFIG_H2_XEN_NOXS
+endif
 
 LDFLAGS		+= -Llib
 

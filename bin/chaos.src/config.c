@@ -76,6 +76,9 @@ struct config {
     struct {
         bool pvh;
         bool pvh_set;
+
+        h2_xen_dev_meth_t dev_meth;
+        bool dev_meth_set;
     } xen;
     bool xen_set;
 };
@@ -144,17 +147,37 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
     (*guest)->hyp.info.xen->pvh = conf->xen.pvh;
 
-    (*guest)->hyp.info.xen->xs.active = true;
+    switch (conf->xen.dev_meth) {
+        case h2_xen_dev_meth_t_xs:
+            (*guest)->hyp.info.xen->xs.active = true;
+            break;
 
-    (*guest)->hyp.info.xen->devs[0].type = h2_xen_dev_t_console;
-    (*guest)->hyp.info.xen->devs[0].dev.console.meth = h2_xen_dev_meth_t_xs;
-    (*guest)->hyp.info.xen->devs[0].dev.console.backend_id = 0;
+#ifdef CONFIG_H2_XEN_NOXS
+        case h2_xen_dev_meth_t_noxs:
+            (*guest)->hyp.info.xen->noxs.active = true;
+            break;
+#endif
+    };
+
+    /* TODO: Add console to domain when using NoXS
+     * Currently there is no noxs backend available for console, therefore
+     * avoid adding a console to the domain since that will make the creation
+     * fail.
+     */
+#ifdef CONFIG_H2_XEN_NOXS
+    if (conf->xen.dev_meth != h2_xen_dev_meth_t_noxs)
+#endif
+    {
+        (*guest)->hyp.info.xen->devs[0].type = h2_xen_dev_t_console;
+        (*guest)->hyp.info.xen->devs[0].dev.console.meth = conf->xen.dev_meth;
+        (*guest)->hyp.info.xen->devs[0].dev.console.backend_id = 0;
+    }
 
     for (int i = 0; i < conf->vifs_nr; i++) {
         (*guest)->hyp.info.xen->devs[i + 1].type = h2_xen_dev_t_vif;
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.id = i;
         (*guest)->hyp.info.xen->devs[i + 1].dev.vif.backend_id = 0;
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.meth = h2_xen_dev_meth_t_xs;
+        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.meth = conf->xen.dev_meth;
         memcpy(&((*guest)->hyp.info.xen->devs[i + 1].dev.vif.ip), &(conf->vifs[i].ip),
                 sizeof(struct in_addr));
         memcpy((*guest)->hyp.info.xen->devs[i + 1].dev.vif.mac, conf->vifs[i].mac, 6);
@@ -306,6 +329,37 @@ static int __parse_xen(json_t* xen, config* conf)
 
             conf->xen.pvh = json_boolean_value(value);
             conf->xen.pvh_set = true;
+        } else if (strcmp(key, "dev_method") == 0) {
+            if (conf->xen.dev_meth_set) {
+                fprintf(stderr, "Parameter 'dev_meth' defined multiple times.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            const char* meth = json_string_value(value);
+            if (meth == NULL) {
+                fprintf(stderr, "Parameter 'dev_meth' has invalid type, must be string.\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            if (strcmp(meth, "xenstore") == 0) {
+                conf->xen.dev_meth = h2_xen_dev_meth_t_xs;
+#ifdef CONFIG_H2_XEN_NOXS
+            } else if (strcmp(meth, "noxs") == 0) {
+                conf->xen.dev_meth = h2_xen_dev_meth_t_noxs;
+#endif
+            } else {
+                fprintf(stderr, "Parameter 'dev_meth' has invalid value, must be xs"
+#ifdef CONFIG_H2_XEN_NOXS
+                        " or noxs"
+#endif
+                        ".\n");
+                ret = EINVAL;
+                goto out;
+            }
+
+            conf->xen.dev_meth_set = true;
         } else {
             fprintf(stderr, "Invalid parameter '%s' on xen definition.\n", key);
             ret = EINVAL;

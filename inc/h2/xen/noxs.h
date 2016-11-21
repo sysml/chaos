@@ -34,84 +34,22 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include "config.h"
-#include "cmdline.h"
+#ifndef __H2__XEN__NOXS__H__
+#define __H2__XEN__NOXS__H__
+
+#include <h2/h2.h>
 
 
-int main(int argc, char** argv)
-{
-    int ret;
+int h2_xen_noxs_open(h2_xen_ctx* ctx);
+int h2_xen_noxs_close(h2_xen_ctx* ctx);
 
-    cmdline cmd;
+int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
-    h2_ctx* ctx;
-    h2_guest* guest;
-    h2_hyp_cfg hyp_cfg;
+int h2_xen_noxs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
+int h2_xen_noxs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
 
+int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
+int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
 
-    cmdline_parse(argc, argv, &cmd);
-
-    if (cmd.error) {
-        cmdline_usage(argv[0]);
-        ret = EINVAL;
-        goto out;
-    }
-
-    hyp_cfg.xen.xs.domid = 0;
-    hyp_cfg.xen.xs.active = true;
-#ifdef CONFIG_H2_XEN_NOXS
-    hyp_cfg.xen.noxs.active = true;
-#endif
-    hyp_cfg.xen.xlib = h2_xen_xlib_t_xc;
-
-    ret = h2_open(&ctx, h2_hyp_t_xen, &hyp_cfg);
-    if (ret) {
-        goto out_h2;
-    }
-
-    switch(cmd.op) {
-        case op_none:
-            break;
-
-        case op_create:
-            ret = config_parse(cmd.kernel, h2_hyp_t_xen, &guest);
-            if (ret) {
-                goto out_h2;
-            }
-
-            ret = h2_guest_create(ctx, guest);
-            if (ret) {
-                goto out_guest;
-            }
-
-            h2_guest_free(&guest);
-            break;
-
-        case op_destroy:
-            ret = h2_guest_query(ctx, cmd.gid, &guest);
-            if (ret) {
-                goto out_h2;
-            }
-
-            ret = h2_guest_destroy(ctx, guest);
-            if (ret) {
-                goto out_guest;
-            }
-
-            h2_guest_free(&guest);
-            break;
-    }
-
-    h2_close(&ctx);
-
-    return 0;
-
-out_guest:
-    h2_guest_free(&guest);
-
-out_h2:
-    h2_close(&ctx);
-
-out:
-    return -ret;
-}
+#endif /* __H2__XEN__NOXS__H__ */

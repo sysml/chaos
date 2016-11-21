@@ -1,11 +1,25 @@
-# libh2
+# Basic configuration
+## Enable NoXenstore support
+CONFIG_H2_XEN_NOXS  := n
 
+## Set install prefix
+PREFIX              := /usr/local
+
+
+# libh2
+## Set libh2 version
 LIBH2_V_MAJOR   := 0
 LIBH2_V_MINOR   := 1
 LIBH2_V_BUGFIX  := 0
 
+
+# XEN sources
+## Point to root of (built) xen sources
 XEN_ROOT        := /usr/src/xen
+## Set install prefix configured for xen build
 XEN_PREFIX      := /usr/local
 
-# installation
-PREFIX          := /usr/local
+
+# Linux sources
+## Point to the location of UAPI headers, if not using system installed ones
+LINUX_HEADERS   :=
