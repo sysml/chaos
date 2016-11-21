@@ -40,6 +40,9 @@ CSCOPE_FILES	:= cscope.files cscope.out cscope.in.out cscope.po.out
 
 # Default build flags
 CFLAGS		+= -Iinc
+ifneq ($(LINUX_HEADERS),)
+CFLAGS		+= -I$(LINUX_HEADERS)
+endif
 CFLAGS		+= -std=gnu11
 CFLAGS		+= -Wall -MD -MP -g
 ifeq ($(CONFIG_H2_XEN_NOXS),y)

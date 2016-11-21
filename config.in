@@ -18,3 +18,8 @@ LIBH2_V_BUGFIX  := 0
 XEN_ROOT        := /usr/src/xen
 ## Set install prefix configured for xen build
 XEN_PREFIX      := /usr/local
+
+
+# Linux sources
+## Point to the location of UAPI headers, if not using system installed ones
+LINUX_HEADERS   :=
