@@ -51,9 +51,9 @@ int main(int argc, char** argv)
 
     cmdline_parse(argc, argv, &cmd);
 
-    if (cmd.error) {
+    if (cmd.error || cmd.help) {
         cmdline_usage(argv[0]);
-        ret = EINVAL;
+        ret = cmd.error ? EINVAL : 0;
         goto out;
     }
 
