@@ -55,8 +55,6 @@ int h2_guest_alloc(h2_guest** guest, h2_hyp_t hyp);
 int h2_guest_query(h2_ctx* ctx, h2_guest_id id, h2_guest** guest);
 void h2_guest_free(h2_guest** guest);
 
-int h2_guest_precreate(h2_ctx* ctx, h2_guest* guest);
-int h2_guest_fastboot(h2_ctx* ctx, h2_guest* guest);
 int h2_guest_create(h2_ctx* ctx, h2_guest* guest);
 int h2_guest_destroy(h2_ctx* ctx, h2_guest* guest);
 
