@@ -46,8 +46,9 @@ int h2_xen_noxs_close(h2_xen_ctx* ctx);
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
-int h2_xen_noxs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
-int h2_xen_noxs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
+int h2_xen_noxs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
+        evtchn_port_t evtchn, unsigned int mfn);
+int h2_xen_noxs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 
 int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
 int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);

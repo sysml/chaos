@@ -168,20 +168,21 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
     if (conf->xen.dev_meth != h2_xen_dev_meth_t_noxs)
 #endif
     {
-        (*guest)->hyp.info.xen->devs[0].type = h2_xen_dev_t_console;
-        (*guest)->hyp.info.xen->devs[0].dev.console.meth = conf->xen.dev_meth;
-        (*guest)->hyp.info.xen->devs[0].dev.console.backend_id = 0;
+        (*guest)->hyp.info.xen->console.active = true;
+        (*guest)->hyp.info.xen->console.meth = conf->xen.dev_meth;
+        /* TODO: Allow user to configure console backend_id. */
+        (*guest)->hyp.info.xen->console.be_id = 0;
     }
 
     for (int i = 0; i < conf->vifs_nr; i++) {
-        (*guest)->hyp.info.xen->devs[i + 1].type = h2_xen_dev_t_vif;
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.id = i;
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.backend_id = 0;
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.meth = conf->xen.dev_meth;
-        memcpy(&((*guest)->hyp.info.xen->devs[i + 1].dev.vif.ip), &(conf->vifs[i].ip),
+        (*guest)->hyp.info.xen->devs[i].type = h2_xen_dev_t_vif;
+        (*guest)->hyp.info.xen->devs[i].dev.vif.id = i;
+        (*guest)->hyp.info.xen->devs[i].dev.vif.backend_id = 0;
+        (*guest)->hyp.info.xen->devs[i].dev.vif.meth = conf->xen.dev_meth;
+        memcpy(&((*guest)->hyp.info.xen->devs[i].dev.vif.ip), &(conf->vifs[i].ip),
                 sizeof(struct in_addr));
-        memcpy((*guest)->hyp.info.xen->devs[i + 1].dev.vif.mac, conf->vifs[i].mac, 6);
-        (*guest)->hyp.info.xen->devs[i + 1].dev.vif.bridge = strdup(conf->vifs[i].bridge);
+        memcpy((*guest)->hyp.info.xen->devs[i].dev.vif.mac, conf->vifs[i].mac, 6);
+        (*guest)->hyp.info.xen->devs[i].dev.vif.bridge = strdup(conf->vifs[i].bridge);
     }
 
     return 0;

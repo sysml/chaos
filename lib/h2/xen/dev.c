@@ -34,7 +34,6 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include <h2/xen/console.h>
 #include <h2/xen/dev.h>
 #ifdef CONFIG_H2_XEN_NOXS
 #include <h2/xen/noxs.h>
@@ -47,9 +46,6 @@ void h2_xen_dev_free(h2_xen_dev* dev)
 {
     switch (dev->type) {
         case h2_xen_dev_t_none:
-            break;
-
-        case h2_xen_dev_t_console:
             break;
 
         case h2_xen_dev_t_vif:
@@ -117,10 +113,6 @@ int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
         case h2_xen_dev_t_none:
             break;
 
-        case h2_xen_dev_t_console:
-            ret = h2_xen_console_create(ctx, guest, &(dev->dev.console));
-            break;
-
         case h2_xen_dev_t_vif:
             ret = h2_xen_vif_create(ctx, guest, &(dev->dev.vif));
             break;
@@ -136,10 +128,6 @@ int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
     ret = 0;
     switch (dev->type) {
         case h2_xen_dev_t_none:
-            break;
-
-        case h2_xen_dev_t_console:
-            ret = h2_xen_console_destroy(ctx, guest, &(dev->dev.console));
             break;
 
         case h2_xen_dev_t_vif:
