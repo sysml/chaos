@@ -351,7 +351,7 @@ static int __parse_xen(json_t* xen, config* conf)
                 conf->xen.dev_meth = h2_xen_dev_meth_t_noxs;
 #endif
             } else {
-                fprintf(stderr, "Parameter 'dev_meth' has invalid value, must be xs"
+                fprintf(stderr, "Parameter 'dev_meth' has invalid value, must be xenstore"
 #ifdef CONFIG_H2_XEN_NOXS
                         " or noxs"
 #endif
