@@ -36,6 +36,7 @@
  */
 
 #include <h2/xen.h>
+#include <h2/xen/console.h>
 #include <h2/xen/dev.h>
 #ifdef CONFIG_H2_XEN_NOXS
 #include <h2/xen/noxs.h>
@@ -229,8 +230,6 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
     int ret;
 
     h2_xen_xc_dom* xc_dom;
-    h2_xen_dev* dev;
-    h2_xen_dev_console* console;
 
     if (ctx == NULL || guest == NULL) {
         ret = EINVAL;
@@ -245,14 +244,8 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
     xc_dom->xs.active = (ctx->xs.active && guest->hyp.info.xen->xs.active);
     xc_dom->xs.be_id = ctx->xs.domid;
 
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_console, NULL);
-    if (dev != NULL) {
-        console = &(dev->dev.console);
-        xc_dom->console.active = true;
-        xc_dom->console.be_id = console->backend_id;
-    } else {
-        xc_dom->console.active = false;
-    }
+    xc_dom->console.active = guest->hyp.info.xen->console.active;
+    xc_dom->console.be_id = guest->hyp.info.xen->console.be_id;
 
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
@@ -270,11 +263,6 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
                 goto out_dom;
             }
             break;
-    }
-
-    if (xc_dom->console.active) {
-        console->evtchn = xc_dom->console.evtchn;
-        console->mfn = xc_dom->console.mfn;
     }
 
     if (xc_dom->xs.active) {
@@ -333,10 +321,17 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
             break;
     }
 
+    if (xc_dom->console.active) {
+        ret = h2_xen_console_create(ctx, guest, xc_dom->console.evtchn, xc_dom->console.mfn);
+        if (ret) {
+            goto out_dom;
+        }
+    }
+
     if (xc_dom->xs.active) {
         ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom->xs.evtchn, xc_dom->xs.mfn);
         if (ret) {
-            goto out_xs;
+            goto out_console;
         }
     }
 
@@ -355,6 +350,11 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
 out_xs:
     if (xc_dom->xs.active) {
         h2_xen_xs_domain_destroy(ctx, guest);
+    }
+
+out_console:
+    if (xc_dom->console.active) {
+        h2_xen_console_destroy(ctx, guest);
     }
 
 out_dom:
@@ -397,6 +397,13 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 
     for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
         _ret = h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+    }
+
+    if (guest->hyp.info.xen->console.active) {
+        _ret = h2_xen_console_destroy(ctx, guest);
         if (_ret && !ret) {
             ret = _ret;
         }

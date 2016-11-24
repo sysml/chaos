@@ -40,7 +40,8 @@
 #include <h2/h2.h>
 
 
-int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
-int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console);
+int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest,
+        evtchn_port_t evtchn, unsigned int mfn);
+int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 
 #endif /* __H2__XEN__CONSOLE__H__ */

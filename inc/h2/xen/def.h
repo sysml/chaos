@@ -110,19 +110,9 @@ typedef enum h2_xen_dev_meth_t h2_xen_dev_meth_t;
 
 enum h2_xen_dev_t {
     h2_xen_dev_t_none = 0 ,
-    h2_xen_dev_t_console ,
     h2_xen_dev_t_vif ,
 };
 typedef enum h2_xen_dev_t h2_xen_dev_t;
-
-struct h2_xen_dev_console {
-    h2_xen_dev_meth_t meth;
-
-    domid_t backend_id;
-    evtchn_port_t evtchn;
-    unsigned long mfn;
-};
-typedef struct h2_xen_dev_console h2_xen_dev_console;
 
 struct h2_xen_dev_vif {
     int id;
@@ -140,7 +130,6 @@ typedef struct h2_xen_dev_vif h2_xen_dev_vif;
 struct h2_xen_dev {
     h2_xen_dev_t type;
     union {
-        h2_xen_dev_console console;
         h2_xen_dev_vif vif;
     } dev;
 };
@@ -163,6 +152,13 @@ struct h2_xen_guest {
 
     /* xlib-specific information, e.g., struct h2_xen_xc_dom* */
     void* xlib_priv;
+
+    struct {
+        bool active;
+
+        domid_t be_id;
+        h2_xen_dev_meth_t meth;
+    } console;
 
     h2_xen_dev devs[H2_XEN_DEV_COUNT_MAX];
 };

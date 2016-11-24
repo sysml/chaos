@@ -121,8 +121,6 @@ static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
 
     char* dom_path;
     char* xs_val;
-    int idx;
-    h2_xen_dev* dev;
 
     ret = 0;
 
@@ -139,22 +137,13 @@ static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
     }
     free(xs_val);
 
-    /* Domain has a console so lets add that device to the list. */
+    /* Domain has a console so lets add it as the default console. */
 
-    idx = 0;
-    dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
-    if (!dev) {
-        ret = ENOMEM;
-        goto out;
-    }
+    guest->hyp.info.xen->console.active = true;
 
-    dev->type = h2_xen_dev_t_console;
-
-    dev->dev.console.meth = h2_xen_dev_meth_t_xs;
-    /* FIXME: Need to retrieve these */
-    dev->dev.console.backend_id = 0;
-    dev->dev.console.evtchn = 0;
-    dev->dev.console.mfn = 0;
+    /* FIXME: Assuming console backend is Domain-0 */
+    guest->hyp.info.xen->console.be_id = 0;
+    guest->hyp.info.xen->console.meth = h2_xen_dev_meth_t_xs;
 
 out:
     return ret;
@@ -459,7 +448,8 @@ out:
     return ret;
 }
 
-int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
+        evtchn_port_t evtchn, unsigned int mfn)
 {
     int ret;
 
@@ -481,8 +471,8 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_consol
     dom_rw[0].perms = XS_PERM_NONE;
 
     asprintf(&console_path, "%s/console", guest->hyp.info.xen->xs.dom_path);
-    asprintf(&mfn_val, "%lu", console->mfn);
-    asprintf(&evtchn_val, "%u", console->evtchn);
+    asprintf(&mfn_val, "%u", mfn);
+    asprintf(&evtchn_val, "%u", evtchn);
     type_val = "xenconsoled";
 
 th_start:
@@ -533,7 +523,7 @@ out:
     return ret;
 }
 
-int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_console* console)
+int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
