@@ -225,6 +225,7 @@ void h2_xen_guest_free(h2_xen_guest** guest)
     (*guest) = NULL;
 }
 
+
 int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -272,22 +273,9 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
-    ret = 0;
-    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX && !ret; i++) {
-        ret = h2_xen_dev_create(ctx, guest, &(guest->hyp.info.xen->devs[i]));
-    }
-    if (ret) {
-        goto out_dev;
-    }
-
     guest->hyp.info.xen->xlib_priv = xc_dom;
 
     return 0;
-
-out_dev:
-    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
-        h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
-    }
 
 out_dom:
     switch (ctx->xlib) {
@@ -373,15 +361,31 @@ int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     ret = h2_xen_domain_precreate(ctx, guest);
     if (ret) {
-        return ret;
+        goto out_err;
+    }
+
+    ret = 0;
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX && !ret; i++) {
+        ret = h2_xen_dev_create(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+    }
+    if (ret) {
+        goto out_dev;
     }
 
     ret = h2_xen_domain_fastboot(ctx, guest);
     if (ret) {
-        return ret;
+        goto out_dev;
     }
 
     return 0;
+
+out_dev:
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
+    }
+
+out_err:
+    return ret;
 }
 
 int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
