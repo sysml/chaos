@@ -291,6 +291,7 @@ int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif
     ioctlc.devid = vif->id;
     ioctlc.cfg.vif.ip = vif->ip.s_addr;
     memcpy(ioctlc.cfg.vif.mac, vif->mac, sizeof(uint8_t[6]));
+    snprintf(ioctlc.cfg.vif.bridge, IFNAMSIZ, vif->bridge);
 
     ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_CREATE, &ioctlc);
     if (ret) {
