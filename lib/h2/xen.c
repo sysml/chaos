@@ -310,14 +310,14 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     if (xc_dom->console.active) {
-        ret = h2_xen_console_create(ctx, guest, xc_dom->console.evtchn, xc_dom->console.mfn);
+        ret = h2_xen_console_create(ctx, guest, xc_dom->console.evtchn, xc_dom->console.gmfn);
         if (ret) {
             goto out_dom;
         }
     }
 
     if (xc_dom->xs.active) {
-        ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom->xs.evtchn, xc_dom->xs.mfn);
+        ret = h2_xen_xs_domain_intro(ctx, guest, xc_dom->xs.evtchn, xc_dom->xs.gmfn);
         if (ret) {
             goto out_console;
         }

@@ -49,7 +49,7 @@ struct h2_xen_xc_dom {
         domid_t be_id;
 
         evtchn_port_t evtchn;
-        unsigned int mfn;
+        unsigned int gmfn;
     } xs;
 
     struct {
@@ -57,7 +57,7 @@ struct h2_xen_xc_dom {
         domid_t be_id;
 
         evtchn_port_t evtchn;
-        unsigned int mfn;
+        unsigned int gmfn;
     } console;
 
     struct xc_dom_image* image;

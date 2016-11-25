@@ -46,13 +46,13 @@ int h2_xen_xs_close(h2_xen_ctx* ctx);
 int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
-        evtchn_port_t evtchn, unsigned int mfn);
+        evtchn_port_t evtchn, unsigned int gmfn);
 
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
 int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
-        evtchn_port_t evtchn, unsigned int mfn);
+        evtchn_port_t evtchn, unsigned int gmfn);
 int h2_xen_xs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 
 int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);

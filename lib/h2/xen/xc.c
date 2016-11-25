@@ -352,17 +352,17 @@ int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h
 
     if (h2_dom->xs.active) {
         if (guest->hyp.info.xen->pvh) {
-            h2_dom->xs.mfn = img->xenstore_pfn;
+            h2_dom->xs.gmfn = img->xenstore_pfn;
         } else {
-            h2_dom->xs.mfn = xc_dom_p2m(img, img->xenstore_pfn);
+            h2_dom->xs.gmfn = xc_dom_p2m(img, img->xenstore_pfn);
         }
     }
 
     if (h2_dom->console.active) {
         if (guest->hyp.info.xen->pvh) {
-            h2_dom->console.mfn = img->console_pfn;
+            h2_dom->console.gmfn = img->console_pfn;
         } else {
-            h2_dom->console.mfn = xc_dom_p2m(img, img->console_pfn);
+            h2_dom->console.gmfn = xc_dom_p2m(img, img->console_pfn);
         }
     }
 

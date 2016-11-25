@@ -44,14 +44,14 @@
 /* FIXME: Support adding more than one console. */
 
 int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest,
-        evtchn_port_t evtchn, unsigned int mfn)
+        evtchn_port_t evtchn, unsigned int gmfn)
 {
     int ret;
 
     switch (guest->hyp.info.xen->console.meth) {
         case h2_xen_dev_meth_t_xs:
             if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
-                ret = h2_xen_xs_console_create(ctx, guest, evtchn, mfn);
+                ret = h2_xen_xs_console_create(ctx, guest, evtchn, gmfn);
             } else {
                 ret = EINVAL;
             }
@@ -60,7 +60,7 @@ int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest,
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
             if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
-                ret = h2_xen_noxs_console_create(ctx, guest, evtchn, mfn);
+                ret = h2_xen_noxs_console_create(ctx, guest, evtchn, gmfn);
             } else {
                 ret = EINVAL;
             }

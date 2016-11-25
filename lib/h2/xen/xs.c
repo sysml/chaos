@@ -369,7 +369,7 @@ out:
 }
 
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
-        evtchn_port_t evtchn, unsigned int mfn)
+        evtchn_port_t evtchn, unsigned int gmfn)
 {
     int ret;
 
@@ -378,7 +378,7 @@ int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
         goto out;
     }
 
-    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, mfn, evtchn)) {
+    if (!xs_introduce_domain(ctx->xs.xsh, guest->id, gmfn, evtchn)) {
         ret = errno;
     }
 
@@ -449,7 +449,7 @@ out:
 }
 
 int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
-        evtchn_port_t evtchn, unsigned int mfn)
+        evtchn_port_t evtchn, unsigned int gmfn)
 {
     int ret;
 
@@ -457,7 +457,7 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
 
     char* console_path;
     char* type_val;
-    char* mfn_val;
+    char* ringref_val;
     char* evtchn_val;
 
     struct xs_permissions dom_rw[1];
@@ -471,7 +471,7 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
     dom_rw[0].perms = XS_PERM_NONE;
 
     asprintf(&console_path, "%s/console", guest->hyp.info.xen->xs.dom_path);
-    asprintf(&mfn_val, "%u", mfn);
+    asprintf(&ringref_val, "%u", gmfn);
     asprintf(&evtchn_val, "%u", evtchn);
     type_val = "xenconsoled";
 
@@ -493,7 +493,7 @@ th_start:
         goto th_end;
     }
 
-    ret = __write_kv(ctx, th, console_path, "ring-ref", mfn_val);
+    ret = __write_kv(ctx, th, console_path, "ring-ref", ringref_val);
     if (ret) {
         goto th_end;
     }
@@ -517,7 +517,7 @@ th_end:
     }
 
     free(console_path);
-    free(mfn_val);
+    free(ringref_val);
     free(evtchn_val);
 out:
     return ret;
