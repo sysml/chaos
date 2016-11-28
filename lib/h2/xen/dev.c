@@ -64,8 +64,8 @@ h2_xen_dev* h2_xen_dev_get_next(h2_guest* guest, h2_xen_dev_t type, int* idx)
 
     dev = NULL;
     for (i = idx ? (*idx) : 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
-        if (guest->hyp.info.xen->devs[i].type == type) {
-            dev = &(guest->hyp.info.xen->devs[i]);
+        if (guest->hyp.guest.xen->devs[i].type == type) {
+            dev = &(guest->hyp.guest.xen->devs[i]);
             break;
         }
     }
@@ -82,7 +82,7 @@ int h2_xen_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+    if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
         ret = h2_xen_xs_dev_enumerate(ctx, guest);
         if (ret) {
             goto out_err;
@@ -90,7 +90,7 @@ int h2_xen_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
 #ifdef CONFIG_H2_XEN_NOXS
-    if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+    if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
         ret = h2_xen_noxs_dev_enumerate(ctx, guest);
         if (ret) {
             goto out_err;

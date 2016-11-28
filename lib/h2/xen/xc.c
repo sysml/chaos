@@ -134,7 +134,7 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     flags = 0;
     dom_config.emulation_flags = 0;
 
-    if (guest->hyp.info.xen->pvh) {
+    if (guest->hyp.guest.xen->pvh) {
         flags |= XEN_DOMCTL_CDF_pvh_guest;
         flags |= XEN_DOMCTL_CDF_hap;
     }
@@ -179,7 +179,7 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     /* FIXME: Check what is the proper TSC Mode for pv and use macros */
-    if (guest->hyp.info.xen->pvh) {
+    if (guest->hyp.guest.xen->pvh) {
         ret = xc_domain_set_tsc_info(ctx->xc.xci, domid, 2, 0, 0, 0);
     } else {
         ret = xc_domain_set_tsc_info(ctx->xc.xci, domid, 0, 0, 0, 0);
@@ -227,7 +227,7 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2
     struct xc_dom_image* img;
 
     features = NULL;
-    if (guest->hyp.info.xen->pvh) {
+    if (guest->hyp.guest.xen->pvh) {
         features =
             "|writable_descriptor_tables"
             "|auto_translated_physmap"
@@ -260,7 +260,7 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2
     }
 
     img->flags = 0;
-    if (guest->hyp.info.xen->pvh) {
+    if (guest->hyp.guest.xen->pvh) {
         img->pvh_enabled = 1;
     }
 
@@ -355,7 +355,7 @@ int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h
     }
 
     if (h2_dom->xs.active) {
-        if (guest->hyp.info.xen->pvh) {
+        if (guest->hyp.guest.xen->pvh) {
             h2_dom->xs.gmfn = img->xenstore_pfn;
         } else {
             h2_dom->xs.gmfn = xc_dom_p2m(img, img->xenstore_pfn);
@@ -363,7 +363,7 @@ int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h
     }
 
     if (h2_dom->console.active) {
-        if (guest->hyp.info.xen->pvh) {
+        if (guest->hyp.guest.xen->pvh) {
             h2_dom->console.gmfn = img->console_pfn;
         } else {
             h2_dom->console.gmfn = xc_dom_p2m(img, img->console_pfn);

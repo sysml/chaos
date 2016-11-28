@@ -57,7 +57,7 @@ static int __guest_pre(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
-    if (!guest->hyp.info.xen->noxs.active) {
+    if (!guest->hyp.guest.xen->noxs.active) {
         ret = EINVAL;
         goto out_err;
     }
@@ -146,7 +146,7 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
         return ret;
     }
 
-    devs = guest->hyp.info.xen->devs;
+    devs = guest->hyp.guest.xen->devs;
     for (int i = 0, j = 0; i < devctl.u.dev_enum.dev_count; i++) {
         dev = &(devctl.u.dev_enum.devs[i]);
 
@@ -233,7 +233,7 @@ out_err:
 
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    guest->hyp.info.xen->noxs.active = true;
+    guest->hyp.guest.xen->noxs.active = true;
     return 0;
 }
 
