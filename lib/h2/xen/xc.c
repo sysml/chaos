@@ -77,7 +77,7 @@ int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg)
     }
 
     /* FIXME: log level should be configurable. Keep debug while developing. */
-    ctx->xc.xtl = (xentoollog_logger*) xtl_createlogger_stdiostream(stderr, XTL_DEBUG, 0);
+    ctx->xc.xtl = (xentoollog_logger*) xtl_createlogger_stdiostream(stderr, XTL_INFO, 0);
     if (ctx->xc.xtl == NULL) {
         ret = errno;
         goto out_err;
