@@ -62,6 +62,8 @@ static void __parse_create(int argc, char** argv, cmdline* cmd)
 
 static void __parse_destroy(int argc, char** argv, cmdline* cmd)
 {
+    char* endp;
+
     if (argc != 2) {
         fprintf(stderr, "Invalid number of arguments for 'destroy'.\n");
         cmd->error = true;
@@ -69,9 +71,10 @@ static void __parse_destroy(int argc, char** argv, cmdline* cmd)
     }
 
     errno = 0;
-    cmd->gid = (h2_guest_id) strtol(argv[1], NULL, 10);
-    if (errno) {
-        fprintf(stderr, "Invalid value for 'guest_id' argument'.\n");
+    cmd->gid = (h2_guest_id) strtol(argv[1], &endp, 10);
+    /* If all string was consumed endp will point to '\0' */
+    if (errno || *endp != '\0') {
+        fprintf(stderr, "Invalid value for 'guest_id' argument.\n");
         cmd->error = true;
     }
 }
