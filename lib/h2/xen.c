@@ -384,6 +384,8 @@ out_dev:
         h2_xen_dev_destroy(ctx, guest, &(guest->hyp.info.xen->devs[i]));
     }
 
+    h2_xen_domain_destroy(ctx, guest);
+
 out_err:
     return ret;
 }
