@@ -79,6 +79,13 @@ static void __parse_destroy(int argc, char** argv, cmdline* cmd)
     }
 }
 
+static void __validate(cmdline* cmd)
+{
+    if (cmd->op == op_none && !cmd->help) {
+        cmd->error = true;
+    }
+}
+
 
 int cmdline_parse(int argc, char** argv, cmdline* cmd)
 {
@@ -131,9 +138,9 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
 
             fprintf(stderr, "Invalid command '%s'.\n", argv[optind]);
         }
-    } else if (!cmd->help) {
-        cmd->error = true;
     }
+
+    __validate(cmd);
 
     return 0;
 }
