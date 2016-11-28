@@ -56,6 +56,11 @@ struct cmdline {
     bool help;
     bool error;
 
+    bool enable_xs;
+#ifdef CONFIG_H2_XEN_NOXS
+    bool enable_noxs;
+#endif
+
     h2_guest_id gid;
 
     char* kernel;

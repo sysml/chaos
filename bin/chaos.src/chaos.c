@@ -58,9 +58,9 @@ int main(int argc, char** argv)
     }
 
     hyp_cfg.xen.xs.domid = 0;
-    hyp_cfg.xen.xs.active = true;
+    hyp_cfg.xen.xs.active = cmd.enable_xs;
 #ifdef CONFIG_H2_XEN_NOXS
-    hyp_cfg.xen.noxs.active = true;
+    hyp_cfg.xen.noxs.active = cmd.enable_noxs;
 #endif
     hyp_cfg.xen.xlib = h2_xen_xlib_t_xc;
 

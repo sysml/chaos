@@ -47,6 +47,11 @@
 static void __init(cmdline* cmd)
 {
     memset(cmd, 0, sizeof(cmdline));
+
+    cmd->enable_xs = true;
+#ifdef CONFIG_H2_XEN_NOXS
+    cmd->enable_noxs = true;
+#endif
 }
 
 static void __parse_create(int argc, char** argv, cmdline* cmd)
@@ -83,6 +88,13 @@ static void __validate(cmdline* cmd)
 {
     if (cmd->op == op_none && !cmd->help) {
         cmd->error = true;
+    } else if (!cmd->enable_xs
+#ifdef CONFIG_H2_XEN_NOXS
+            && !cmd->enable_noxs
+#endif
+            ) {
+        fprintf(stderr, "No bus enabled!");
+        cmd->error = true;
     }
 }
 
@@ -95,6 +107,10 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
     const char *short_opts = "h";
     const struct option long_opts[] = {
         { "help"               , no_argument       , NULL , 'h' },
+        { "no-xs"              , no_argument       , NULL , 'X' },
+#ifdef CONFIG_H2_XEN_NOXS
+        { "no-noxs"            , no_argument       , NULL , 'N' },
+#endif
         { NULL , 0 , NULL , 0 }
     };
 
@@ -112,6 +128,16 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
             case 'h':
                 cmd->help = true;
                 break;
+
+            case 'X':
+                cmd->enable_xs = false;
+                break;
+
+#ifdef CONFIG_H2_XEN_NOXS
+            case 'N':
+                cmd->enable_noxs = false;
+                break;
+#endif
 
             default:
                 cmd->error = true;
@@ -150,6 +176,8 @@ void cmdline_usage(char* argv0)
     printf("Usage: %s [option]... <command> [args...]\n", argv0);
     printf("\n");
     printf("  -h, --help             Display this help and exit.\n");
+    printf("      --no-xs            Disable Xenstore.\n");
+    printf("      --no-noxs          Disable NoXenstore.\n");
     printf("\n");
     printf("commands:\n");
     printf("    create <config_file>\n");
