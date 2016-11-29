@@ -188,6 +188,12 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_dom;
     }
 
+    ret = xc_cpuid_apply_policy(ctx->xc.xci, domid, NULL, 0);
+    if (ret) {
+        ret = errno;
+        goto out_dom;
+    }
+
     guest->id = domid;
 
     return 0;
@@ -281,8 +287,6 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2
     if (ret) {
         goto out_console_evtchn;
     }
-
-    xc_cpuid_apply_policy(ctx->xc.xci, guest->id, NULL, 0);
 
     h2_dom->image = img;
     return 0;
