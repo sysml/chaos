@@ -40,6 +40,7 @@
 #include <h2/h2.h>
 
 
+void h2_xen_dev_reuse(h2_xen_dev* dev);
 void h2_xen_dev_free(h2_xen_dev* dev);
 
 

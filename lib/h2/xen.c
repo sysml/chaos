@@ -199,6 +199,21 @@ out_err:
     return ret;
 }
 
+void h2_xen_guest_reuse(h2_xen_guest* guest)
+{
+    if (guest == NULL) {
+        return;
+    }
+
+    for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        h2_xen_dev_reuse(&(guest->devs[i]));
+    }
+
+    h2_xen_xs_priv_free(guest);
+
+    h2_xen_xc_priv_free(guest);
+}
+
 void h2_xen_guest_free(h2_xen_guest** guest)
 {
     if (guest == NULL || (*guest) == NULL) {

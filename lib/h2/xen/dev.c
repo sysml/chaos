@@ -42,6 +42,18 @@
 #include <h2/xen/xs.h>
 
 
+void h2_xen_dev_reuse(h2_xen_dev* dev)
+{
+    switch (dev->type) {
+        case h2_xen_dev_t_none:
+            break;
+
+        case h2_xen_dev_t_vif:
+            h2_xen_vif_reuse(&(dev->dev.vif));
+            break;
+    }
+}
+
 void h2_xen_dev_free(h2_xen_dev* dev)
 {
     switch (dev->type) {

@@ -40,6 +40,7 @@
 #include <h2/h2.h>
 
 
+void h2_xen_vif_reuse(h2_xen_dev_vif* vif);
 void h2_xen_vif_free(h2_xen_dev_vif* vif);
 
 

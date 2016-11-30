@@ -41,6 +41,11 @@
 #include <h2/xen/xs.h>
 
 
+void h2_xen_vif_reuse(h2_xen_dev_vif* vif)
+{
+    vif->valid = false;
+}
+
 void h2_xen_vif_free(h2_xen_dev_vif* vif)
 {
     if (vif->bridge) {

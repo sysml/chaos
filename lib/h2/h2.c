@@ -171,6 +171,21 @@ out_err:
     return ret;
 }
 
+void h2_guest_reuse(h2_guest* guest)
+{
+    if (guest == NULL) {
+        return;
+    }
+
+    guest->id = 0;
+
+    switch (guest->hyp.type) {
+        case h2_hyp_t_xen:
+            h2_xen_guest_reuse(guest->hyp.guest.xen);
+            break;
+    }
+}
+
 void h2_guest_free(h2_guest** guest)
 {
     if (guest == NULL || (*guest) == NULL) {
