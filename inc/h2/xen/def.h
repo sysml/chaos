@@ -135,11 +135,36 @@ struct h2_xen_dev {
 };
 typedef struct h2_xen_dev h2_xen_dev;
 
-
-struct h2_xen_guest {
+struct h2_xen_guest_priv {
     struct {
         bool active;
+
+        evtchn_port_t evtchn;
+        unsigned int gmfn;
+
         char* dom_path;
+    } xs;
+
+    struct {
+        evtchn_port_t evtchn;
+        unsigned int gmfn;
+    } console;
+
+    h2_xen_xlib_t xlib;
+    union {
+        struct {
+            bool active;
+            struct xc_dom_image* img;
+        } xc;
+    } xlibd;
+};
+typedef struct h2_xen_guest_priv h2_xen_guest_priv;
+
+struct h2_xen_guest {
+    bool pvh;
+
+    struct {
+        bool active;
     } xs;
 
 #ifdef CONFIG_H2_XEN_NOXS
@@ -147,11 +172,6 @@ struct h2_xen_guest {
         bool active;
     } noxs;
 #endif
-
-    bool pvh;
-
-    /* xlib-specific information, e.g., struct h2_xen_xc_dom* */
-    void* xlib_priv;
 
     struct {
         bool active;
@@ -161,6 +181,8 @@ struct h2_xen_guest {
     } console;
 
     h2_xen_dev devs[H2_XEN_DEV_COUNT_MAX];
+
+    h2_xen_guest_priv priv;
 };
 typedef struct h2_xen_guest h2_xen_guest;
 

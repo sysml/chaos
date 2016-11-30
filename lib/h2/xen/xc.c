@@ -117,6 +117,20 @@ void h2_xen_xc_close(h2_xen_ctx* ctx)
 }
 
 
+void h2_xen_xc_priv_free(h2_xen_guest* guest)
+{
+    if (guest == NULL || guest->priv.xlib != h2_xen_xlib_t_xc) {
+        return;
+    }
+
+    if (guest->priv.xlibd.xc.active) {
+        xc_dom_release(guest->priv.xlibd.xc.img);
+        guest->priv.xlibd.xc.img = NULL;
+        guest->priv.xlibd.xc.active = false;
+    }
+}
+
+
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -220,47 +234,54 @@ static void __choose_guest_type(h2_guest* guest, struct xc_dom_image* dom)
     }
 }
 
-int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
+int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
     char* features;
+    h2_xen_guest* xguest;
     struct xc_dom_image* img;
 
+    xguest = guest->hyp.guest.xen;
+
     features = NULL;
-    if (guest->hyp.guest.xen->pvh) {
+    if (xguest->pvh) {
         features =
             "|writable_descriptor_tables"
             "|auto_translated_physmap"
             "|supervisor_mode_kernel"
             "|hvm_callback_vector";
     }
+
     img = xc_dom_allocate(ctx->xc.xci, guest->cmdline, features);
     if (img == NULL) {
         ret = errno;
         goto out_err;
     }
 
-
-    if (h2_dom->xs.active) {
-        img->xenstore_domid = h2_dom->xs.be_id;
-        ret = __evtchn_alloc_unbound(ctx, guest->id, h2_dom->xs.be_id, &(h2_dom->xs.evtchn));
+    if (xguest->priv.xs.active) {
+        ret = __evtchn_alloc_unbound(ctx,
+                guest->id, ctx->xs.domid, &(xguest->priv.xs.evtchn));
         if (ret) {
             goto out_dom;
         }
-        img->xenstore_evtchn = h2_dom->xs.evtchn;
+
+        img->xenstore_domid = ctx->xs.domid;
+        img->xenstore_evtchn = xguest->priv.xs.evtchn;
     }
 
-    if (h2_dom->console.active) {
-        img->console_domid = h2_dom->console.be_id;
-        ret = __evtchn_alloc_unbound(ctx, guest->id, h2_dom->console.be_id, &(h2_dom->console.evtchn));
+    if (xguest->console.active) {
+        ret = __evtchn_alloc_unbound(ctx,
+                guest->id, xguest->console.be_id, &(xguest->priv.console.evtchn));
         if (ret) {
             goto out_xs_evtchn;
         }
-        img->console_evtchn = h2_dom->console.evtchn;
+
+        img->console_domid = xguest->console.be_id;
+        img->console_evtchn = xguest->priv.console.evtchn;
     }
 
     img->flags = 0;
-    if (guest->hyp.guest.xen->pvh) {
+    if (xguest->pvh) {
         img->pvh_enabled = 1;
     }
 
@@ -288,7 +309,10 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2
         goto out_console_evtchn;
     }
 
-    h2_dom->image = img;
+    xguest->priv.xlib = h2_xen_xlib_t_xc;
+    xguest->priv.xlibd.xc.active = true;
+    xguest->priv.xlibd.xc.img = img;
+
     return 0;
 
     /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
@@ -300,21 +324,28 @@ out_dom:
     xc_dom_release(img);
 
 out_err:
-    h2_dom->image = NULL;
     return ret;
 }
 
-int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h2_dom)
+int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
+    h2_xen_guest* xguest;
     struct xc_dom_image* img;
 
-    if (!h2_dom->image) {
-        ret = -EINVAL;
-        goto release_image;
+    xguest = guest->hyp.guest.xen;
+
+    if (xguest == NULL) {
+        ret = EINVAL;
+        goto out_err;
     }
 
-    img = h2_dom->image;
+    if (xguest->priv.xlib != h2_xen_xlib_t_xc || !xguest->priv.xlibd.xc.active) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    img = xguest->priv.xlibd.xc.img;
 
     switch (guest->kernel.type) {
         case h2_kernel_buff_t_mem:
@@ -331,52 +362,52 @@ int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_xc_dom* h
             break;
     }
     if (ret) {
-        goto release_image;
+        goto out_err;
     }
 
     ret = xc_dom_parse_image(img);
     if (ret) {
-        goto release_image;
+        goto out_err;
     }
 
     ret = xc_dom_build_image(img);
     if (ret) {
-        goto release_image;
+        goto out_err;
     }
 
     ret = xc_dom_boot_image(img);
     if (ret) {
-        goto release_image;
+        goto out_err;
     }
 
     ret = xc_dom_gnttab_init(img);
     if (ret) {
-        goto release_image;
+        goto out_err;
     }
 
-    if (h2_dom->xs.active) {
-        if (guest->hyp.guest.xen->pvh) {
-            h2_dom->xs.gmfn = img->xenstore_pfn;
+    if (xguest->priv.xs.active) {
+        if (xguest->pvh) {
+            xguest->priv.xs.gmfn = img->xenstore_pfn;
         } else {
-            h2_dom->xs.gmfn = xc_dom_p2m(img, img->xenstore_pfn);
+            xguest->priv.xs.gmfn = xc_dom_p2m(img, img->xenstore_pfn);
         }
     }
 
-    if (h2_dom->console.active) {
-        if (guest->hyp.guest.xen->pvh) {
-            h2_dom->console.gmfn = img->console_pfn;
+    if (xguest->console.active) {
+        if (xguest->pvh) {
+            xguest->priv.console.gmfn = img->console_pfn;
         } else {
-            h2_dom->console.gmfn = xc_dom_p2m(img, img->console_pfn);
+            xguest->priv.console.gmfn = xc_dom_p2m(img, img->console_pfn);
         }
     }
 
     xc_dom_release(img);
+    xguest->priv.xlibd.xc.img = NULL;
+    xguest->priv.xlibd.xc.active = false;
 
     return 0;
 
-    /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
-release_image:
-    xc_dom_release(img);
+out_err:
     return ret;
 }
 
