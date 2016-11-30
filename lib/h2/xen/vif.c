@@ -66,7 +66,7 @@ int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     switch (vif->meth) {
         case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+            if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
                 ret = h2_xen_xs_vif_create(ctx, guest, vif);
                 if (!ret) {
                     vif->valid = true;
@@ -78,7 +78,7 @@ int h2_xen_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+            if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
                 ret = h2_xen_noxs_vif_create(ctx, guest, vif);
                 if (!ret) {
                     vif->valid = true;
@@ -105,7 +105,7 @@ int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     switch (vif->meth) {
         case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+            if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
                 ret = h2_xen_xs_vif_destroy(ctx, guest, vif);
                 if (!ret) {
                     vif->valid = false;
@@ -117,7 +117,7 @@ int h2_xen_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+            if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
                 ret = h2_xen_noxs_vif_destroy(ctx, guest, vif);
                 if (!ret) {
                     vif->valid = false;

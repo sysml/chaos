@@ -116,7 +116,7 @@ int h2_guest_alloc(h2_guest** guest, h2_hyp_t hyp)
     (*guest)->hyp.type = hyp;
     switch (hyp) {
         case h2_hyp_t_xen:
-            ret = h2_xen_guest_alloc(&((*guest)->hyp.info.xen));
+            ret = h2_xen_guest_alloc(&((*guest)->hyp.guest.xen));
             break;
 
         default:
@@ -199,7 +199,7 @@ void h2_guest_free(h2_guest** guest)
 
     switch ((*guest)->hyp.type) {
         case h2_hyp_t_xen:
-            h2_xen_guest_free(&((*guest)->hyp.info.xen));
+            h2_xen_guest_free(&((*guest)->hyp.guest.xen));
             break;
     }
 

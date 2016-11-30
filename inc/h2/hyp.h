@@ -64,7 +64,7 @@ struct h2_hyp_guest {
 
     union {
         h2_xen_guest* xen;
-    } info;
+    } guest;
 };
 typedef struct h2_hyp_guest h2_hyp_guest;
 

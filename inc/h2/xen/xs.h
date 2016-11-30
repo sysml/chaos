@@ -43,6 +43,8 @@
 int h2_xen_xs_open(h2_xen_ctx* ctx);
 int h2_xen_xs_close(h2_xen_ctx* ctx);
 
+void h2_xen_xs_priv_free(h2_xen_guest* guest);
+
 int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,

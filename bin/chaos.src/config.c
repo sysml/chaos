@@ -145,16 +145,16 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
     (*guest)->paused = conf->paused;
 
-    (*guest)->hyp.info.xen->pvh = conf->xen.pvh;
+    (*guest)->hyp.guest.xen->pvh = conf->xen.pvh;
 
     switch (conf->xen.dev_meth) {
         case h2_xen_dev_meth_t_xs:
-            (*guest)->hyp.info.xen->xs.active = true;
+            (*guest)->hyp.guest.xen->xs.active = true;
             break;
 
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
-            (*guest)->hyp.info.xen->noxs.active = true;
+            (*guest)->hyp.guest.xen->noxs.active = true;
             break;
 #endif
     };
@@ -168,21 +168,21 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
     if (conf->xen.dev_meth != h2_xen_dev_meth_t_noxs)
 #endif
     {
-        (*guest)->hyp.info.xen->console.active = true;
-        (*guest)->hyp.info.xen->console.meth = conf->xen.dev_meth;
+        (*guest)->hyp.guest.xen->console.active = true;
+        (*guest)->hyp.guest.xen->console.meth = conf->xen.dev_meth;
         /* TODO: Allow user to configure console backend_id. */
-        (*guest)->hyp.info.xen->console.be_id = 0;
+        (*guest)->hyp.guest.xen->console.be_id = 0;
     }
 
     for (int i = 0; i < conf->vifs_nr; i++) {
-        (*guest)->hyp.info.xen->devs[i].type = h2_xen_dev_t_vif;
-        (*guest)->hyp.info.xen->devs[i].dev.vif.id = i;
-        (*guest)->hyp.info.xen->devs[i].dev.vif.backend_id = 0;
-        (*guest)->hyp.info.xen->devs[i].dev.vif.meth = conf->xen.dev_meth;
-        memcpy(&((*guest)->hyp.info.xen->devs[i].dev.vif.ip), &(conf->vifs[i].ip),
+        (*guest)->hyp.guest.xen->devs[i].type = h2_xen_dev_t_vif;
+        (*guest)->hyp.guest.xen->devs[i].dev.vif.id = i;
+        (*guest)->hyp.guest.xen->devs[i].dev.vif.backend_id = 0;
+        (*guest)->hyp.guest.xen->devs[i].dev.vif.meth = conf->xen.dev_meth;
+        memcpy(&((*guest)->hyp.guest.xen->devs[i].dev.vif.ip), &(conf->vifs[i].ip),
                 sizeof(struct in_addr));
-        memcpy((*guest)->hyp.info.xen->devs[i].dev.vif.mac, conf->vifs[i].mac, 6);
-        (*guest)->hyp.info.xen->devs[i].dev.vif.bridge = strdup(conf->vifs[i].bridge);
+        memcpy((*guest)->hyp.guest.xen->devs[i].dev.vif.mac, conf->vifs[i].mac, 6);
+        (*guest)->hyp.guest.xen->devs[i].dev.vif.bridge = strdup(conf->vifs[i].bridge);
     }
 
     return 0;

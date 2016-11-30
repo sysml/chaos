@@ -48,9 +48,9 @@ int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest,
 {
     int ret;
 
-    switch (guest->hyp.info.xen->console.meth) {
+    switch (guest->hyp.guest.xen->console.meth) {
         case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+            if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
                 ret = h2_xen_xs_console_create(ctx, guest, evtchn, gmfn);
             } else {
                 ret = EINVAL;
@@ -59,7 +59,7 @@ int h2_xen_console_create(h2_xen_ctx* ctx, h2_guest* guest,
 
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+            if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
                 ret = h2_xen_noxs_console_create(ctx, guest, evtchn, gmfn);
             } else {
                 ret = EINVAL;
@@ -75,9 +75,9 @@ int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    switch (guest->hyp.info.xen->console.meth) {
+    switch (guest->hyp.guest.xen->console.meth) {
         case h2_xen_dev_meth_t_xs:
-            if (ctx->xs.active && guest->hyp.info.xen->xs.active) {
+            if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
                 ret = h2_xen_xs_console_destroy(ctx, guest);
             } else {
                 ret = EINVAL;
@@ -86,7 +86,7 @@ int h2_xen_console_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
-            if (ctx->noxs.active && guest->hyp.info.xen->noxs.active) {
+            if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
                 ret = h2_xen_noxs_console_destroy(ctx, guest);
             } else {
                 ret = EINVAL;
