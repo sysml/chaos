@@ -52,6 +52,8 @@ static void __init(cmdline* cmd)
 #ifdef CONFIG_H2_XEN_NOXS
     cmd->enable_noxs = true;
 #endif
+
+    cmd->nr_doms = 1;
 }
 
 static int __get_int(const char* str, int* val)
@@ -78,13 +80,49 @@ static int __get_int(const char* str, int* val)
 
 static void __parse_create(int argc, char** argv, cmdline* cmd)
 {
-    if (argc != 2) {
-        fprintf(stderr, "Invalid number of arguments for 'create'.\n");
-        cmd->error = true;
-        return;
+    int ret;
+    int nr_doms;
+
+    const char *short_opts = "n:";
+    const struct option long_opts[] = {
+        { "nr-doms"            , required_argument , NULL , 'n' },
+        { NULL , 0 , NULL , 0 }
+    };
+
+    int opt;
+    int opt_index;
+
+    while (1) {
+        opt = getopt_long(argc, argv, short_opts, long_opts, &opt_index);
+
+        if (opt == -1) {
+            break;
+        }
+
+        switch (opt) {
+            case 'n':
+                ret = __get_int(optarg, &(nr_doms));
+                if (ret || nr_doms < 1) {
+                    fprintf(stderr, "Invalid value for 'nr-doms' argument.\n");
+                    cmd->error = true;
+                } else {
+                    cmd->nr_doms = nr_doms;
+                }
+                break;
+
+            default:
+                cmd->error = true;
+                break;
+        }
     }
 
-    cmd->kernel = argv[1];
+    /* Now parse command */
+    if ((argc - optind) == 1) {
+        cmd->kernel = argv[optind];
+    } else {
+        fprintf(stderr, "Invalid number of arguments for 'create'.\n");
+        cmd->error = true;
+    }
 }
 
 static void __parse_destroy(int argc, char** argv, cmdline* cmd)
@@ -206,8 +244,10 @@ void cmdline_usage(char* argv0)
     printf("      --no-noxs          Disable NoXenstore.\n");
     printf("\n");
     printf("commands:\n");
-    printf("    create <config_file>\n");
+    printf("    create [options] <config_file>\n");
     printf("        Create a new guest based on <config_file>.\n");
+    printf("\n");
+    printf("        -n, --nr-doms    Number of domains to create.\n");
     printf("\n");
     printf("    destroy <guest_id>\n");
     printf("        Create a new guest based on <config_file>.\n");

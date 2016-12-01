@@ -62,6 +62,7 @@ struct cmdline {
 #endif
 
     h2_guest_id gid;
+    int nr_doms;
 
     char* kernel;
 };
