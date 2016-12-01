@@ -205,7 +205,7 @@ void h2_xen_guest_reuse(h2_xen_guest* guest)
         return;
     }
 
-    for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
         h2_xen_dev_reuse(&(guest->devs[i]));
     }
 
@@ -220,7 +220,7 @@ void h2_xen_guest_free(h2_xen_guest** guest)
         return;
     }
 
-    for (int i; i < H2_XEN_DEV_COUNT_MAX; i++) {
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
         h2_xen_dev_free(&((*guest)->devs[i]));
     }
 
