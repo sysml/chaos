@@ -88,12 +88,15 @@ static void __validate(cmdline* cmd)
 {
     if (cmd->op == op_none && !cmd->help) {
         cmd->error = true;
-    } else if (!cmd->enable_xs
+        fprintf(stderr, "No command specified.\n");
+    }
+
+    if (!cmd->enable_xs
 #ifdef CONFIG_H2_XEN_NOXS
             && !cmd->enable_noxs
 #endif
             ) {
-        fprintf(stderr, "No bus enabled!");
+        fprintf(stderr, "No bus enabled.\n");
         cmd->error = true;
     }
 }
