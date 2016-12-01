@@ -115,8 +115,6 @@ static int __enumerate_console(h2_xen_ctx* ctx, h2_guest* guest)
     char* dom_path;
     char* xs_val;
 
-    ret = 0;
-
     dom_path = guest->hyp.guest.xen->priv.xs.dom_path;
 
     /* Check if the domain has xenstore by reading console path. The value read
@@ -294,7 +292,6 @@ int h2_xen_xs_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
     asprintf(&shutdown_path, "%s/control/shutdown", dom_path);
 
 th_start:
-    ret = 0;
     th = xs_transaction_start(ctx->xs.xsh);
 
     if (!xs_mkdir(ctx->xs.xsh, th, dom_path)) {
@@ -479,7 +476,6 @@ int h2_xen_xs_console_create(h2_xen_ctx* ctx, h2_guest* guest,
     type_val = "xenconsoled";
 
 th_start:
-    ret = 0;
     th = xs_transaction_start(ctx->xs.xsh);
 
     if (!xs_mkdir(ctx->xs.xsh, th, console_path)) {
@@ -596,7 +592,6 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     asprintf(&be_id_str, "%d", vif->backend_id);
 
 th_start:
-    ret = 0;
     th = xs_transaction_start(ctx->xs.xsh);
 
     if (!xs_mkdir(ctx->xs.xsh, th, fe_path)) {
