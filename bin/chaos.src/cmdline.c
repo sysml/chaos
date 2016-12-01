@@ -130,7 +130,7 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
     __init(cmd);
 
 
-    const char *short_opts = "h";
+    const char *short_opts = "+h";
     const struct option long_opts[] = {
         { "help"               , no_argument       , NULL , 'h' },
         { "no-xs"              , no_argument       , NULL , 'X' },
