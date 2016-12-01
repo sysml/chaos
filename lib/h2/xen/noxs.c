@@ -283,6 +283,7 @@ int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif
 
     if (vif == NULL) {
         ret = EINVAL;
+        goto out_err;
     }
 
     ioctlc.type = noxs_user_dev_vif;
@@ -330,6 +331,7 @@ int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vi
 
     if (vif == NULL) {
         ret = EINVAL;
+        goto out_err;
     }
 
     ioctld.type = noxs_user_dev_vif;
