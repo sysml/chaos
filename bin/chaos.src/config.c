@@ -203,92 +203,102 @@ static int __parse_mac(uint8_t mac[6], const char* mac_str)
 }
 
 
-static void __parse_vif(json_t* vif, config* conf)
+static void __parse_vifs(json_t* vifs, config* conf)
 {
     int ret;
 
-    int vid;
+    size_t idx;
+    json_t* vif;
     json_t* value;
     const char* key;
 
-    if (!json_is_object(vif)) {
-        fprintf(stderr, "Parameter 'vifs' contains invalid element. Must be array of objects.\n");
+    if (!json_is_array(vifs)) {
+        fprintf(stderr, "Parameter 'vifs' has invalid type, must be array.\n");
         conf->error = true;
         return;
     }
 
-    if (conf->vifs_count >= DEV_MAX_COUNT) {
-        fprintf(stderr, "Too many vifs defined. Maximum %d supported.\n", DEV_MAX_COUNT);
-        conf->error = true;
-        return;
-    }
+    json_array_foreach(vifs, idx, vif) {
+        /* In case of error the loop will `continue` without incrementing the
+         * counter, so do it at the beginning and access `vifs_count - 1`.
+         */
+        conf->vifs_count++;
 
-    vid = conf->vifs_count;
-
-    json_object_foreach(vif, key, value) {
-        if (strcmp(key, "ip") == 0) {
-            if (conf->vifs[vid].ip_set) {
-                fprintf(stderr, "Parameter 'ip' defined multiple times.\n");
-                conf->error = true;
-                continue;
-            }
-
-            conf->vifs[vid].ip_set = true;
-
-            const char* ip_str = json_string_value(value);
-            if (ip_str == NULL) {
-                fprintf(stderr, "Parameter 'ip' has invalid type, must be string.\n");
-                conf->error = true;
-                continue;
-            }
-
-            ret = __parse_ip(&(conf->vifs[vid].ip), ip_str);
-            if (ret) {
-                fprintf(stderr, "Parameter 'ip' is an invalid IP.\n");
-                conf->error = true;
-            }
-        } else if (strcmp(key, "mac") == 0) {
-            if (conf->vifs[vid].mac_set) {
-                fprintf(stderr, "Parameter 'mac' defined multiple times.\n");
-                conf->error = true;
-                continue;
-            }
-
-            conf->vifs[vid].mac_set = true;
-
-            const char* mac_str = json_string_value(value);
-            if (mac_str == NULL) {
-                fprintf(stderr, "Parameter 'mac' has invalid type, must be string.\n");
-                conf->error = true;
-                continue;
-            }
-
-            ret = __parse_mac(conf->vifs[vid].mac, mac_str);
-            if (ret) {
-                fprintf(stderr, "Parameter 'mac' is an invalid MAC.\n");
-                conf->error = true;
-            }
-        } else if (strcmp(key, "bridge") == 0) {
-            if (conf->vifs[vid].bridge_set) {
-                fprintf(stderr, "Parameter 'bridge' defined multiple times.\n");
-                conf->error = true;
-                continue;
-            }
-
-            conf->vifs[vid].bridge_set = true;
-
-            conf->vifs[vid].bridge = json_string_value(value);
-            if (conf->vifs[vid].bridge == NULL) {
-                fprintf(stderr, "Parameter 'bridge' has invalid type, must be string.\n");
-                conf->error = true;
-            }
-        } else {
-            fprintf(stderr, "Invalid parameter '%s' on vif definition.\n", key);
+		if (conf->vifs_count >= DEV_MAX_COUNT) {
+			fprintf(stderr, "Too many vifs defined. Maximum %d supported.\n", DEV_MAX_COUNT);
             conf->error = true;
+            break;
+        }
+
+        if (!json_is_object(vif)) {
+            fprintf(stderr, "Parameter 'vifs' contains invalid element. Must be array of objects.\n");
+            conf->error = true;
+            continue;
+        }
+
+        json_object_foreach(vif, key, value) {
+            if (strcmp(key, "ip") == 0) {
+                if (conf->vifs[conf->vifs_count - 1].ip_set) {
+                    fprintf(stderr, "Parameter 'ip' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vifs[conf->vifs_count - 1].ip_set = true;
+
+                const char* ip_str = json_string_value(value);
+                if (ip_str == NULL) {
+                    fprintf(stderr, "Parameter 'ip' has invalid type, must be string.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                ret = __parse_ip(&(conf->vifs[conf->vifs_count - 1].ip), ip_str);
+                if (ret) {
+                    fprintf(stderr, "Parameter 'ip' is an invalid IP.\n");
+                    conf->error = true;
+                }
+            } else if (strcmp(key, "mac") == 0) {
+                if (conf->vifs[conf->vifs_count - 1].mac_set) {
+                    fprintf(stderr, "Parameter 'mac' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vifs[conf->vifs_count - 1].mac_set = true;
+
+                const char* mac_str = json_string_value(value);
+                if (mac_str == NULL) {
+                    fprintf(stderr, "Parameter 'mac' has invalid type, must be string.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                ret = __parse_mac(conf->vifs[conf->vifs_count - 1].mac, mac_str);
+                if (ret) {
+                    fprintf(stderr, "Parameter 'mac' is an invalid MAC.\n");
+                    conf->error = true;
+                }
+            } else if (strcmp(key, "bridge") == 0) {
+                if (conf->vifs[conf->vifs_count - 1].bridge_set) {
+                    fprintf(stderr, "Parameter 'bridge' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vifs[conf->vifs_count - 1].bridge_set = true;
+
+                conf->vifs[conf->vifs_count - 1].bridge = json_string_value(value);
+                if (conf->vifs[conf->vifs_count - 1].bridge == NULL) {
+                    fprintf(stderr, "Parameter 'bridge' has invalid type, must be string.\n");
+                    conf->error = true;
+                }
+            } else {
+                fprintf(stderr, "Invalid parameter '%s' on vif definition.\n", key);
+                conf->error = true;
+            }
         }
     }
-
-    conf->vifs_count++;
 }
 
 static void __parse_vcpus(json_t* vcpus, config* conf)
@@ -448,9 +458,7 @@ static void __parse_xen(json_t* xen, config* conf)
 
 static void __parse_root(json_t* root, config* conf)
 {
-    size_t idx;
     json_t* value;
-    json_t* vif;
     const char* key;
 
     if (!json_is_object(root)) {
@@ -551,15 +559,7 @@ static void __parse_root(json_t* root, config* conf)
 
             conf->vifs_set = true;
 
-            if (!json_is_array(value)) {
-                fprintf(stderr, "Parameter 'vifs' has invalid type, must be array.\n");
-                conf->error = true;
-                continue;
-            }
-
-            json_array_foreach(value, idx, vif) {
-                __parse_vif(vif, conf);
-            }
+            __parse_vifs(value, conf);
         } else if (strcmp(key, "paused") == 0) {
             if (conf->paused_set) {
                 fprintf(stderr, "Parameter 'paused' defined multiple times.\n");
