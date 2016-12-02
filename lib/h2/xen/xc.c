@@ -166,25 +166,52 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest)
 
     /* TODO: Support CPU pools */
 
+    int cpu;
     int cpu_max;
+    bool set_affinity;
     xc_cpumap_t cpu_map;
 
     cpu_max = xc_get_max_cpus(ctx->xc.xci);
 
-    /* TODO: Support vCPU pinning. For now pinning to all available CPUs. */
+    ret = 0;
     for (int vcpu = 0; vcpu < guest->vcpus.count; vcpu++) {
+        set_affinity = false;
+
         cpu_map = xc_cpumap_alloc(ctx->xc.xci);
 
-        for (int cpu = 0; cpu < cpu_max; cpu ++) {
-            xc_cpumap_setcpu(cpu, cpu_map);
+        /* Set xc_cpumap */
+        for (cpu = 0; cpu < cpu_max; cpu++) {
+            if (h2_cpu_mask_is_set(guest->vcpus.mask[vcpu], cpu)) {
+                set_affinity = true;
+                xc_cpumap_setcpu(cpu, cpu_map);
+            }
         }
 
-        ret = xc_vcpu_setaffinity(ctx->xc.xci, domid, vcpu, cpu_map, NULL, XEN_VCPUAFFINITY_HARD);
+        /* Check whether an invalid CPU was set */
+        for (; cpu < H2_CPUS_MAX; cpu++) {
+            if (h2_cpu_mask_is_set(guest->vcpus.mask[vcpu], cpu)) {
+                ret = EINVAL;
+                break;
+            }
+        }
+        if (ret) {
+            free(cpu_map);
+            break;
+        }
+
+        /* Should only set affinity if the map isn't empty */
+        if (set_affinity) {
+            ret = xc_vcpu_setaffinity(ctx->xc.xci, domid, vcpu, cpu_map, NULL, XEN_VCPUAFFINITY_HARD);
+        }
+
         free(cpu_map);
 
         if (ret) {
-            goto out_dom;
+            break;
         }
+    }
+    if (ret) {
+        goto out_dom;
     }
 
     ret = xc_domain_setmaxmem(ctx->xc.xci, domid, guest->memory);
