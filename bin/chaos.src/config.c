@@ -54,7 +54,6 @@ struct config {
     const char* kernel;
     const char* cmdline;
 
-    bool memory_set;
     unsigned int memory;
 
     struct {
@@ -66,10 +65,9 @@ struct config {
     } vcpus;
     bool vcpus_set;
 
-    bool address_size_set;
     unsigned int address_size;
+    bool address_size_set;
 
-    int vifs_nr;
     struct {
         bool ip_set;
         struct in_addr ip;
@@ -77,6 +75,7 @@ struct config {
         uint8_t mac[6];
         const char* bridge;
     } vifs[DEV_MAX_COUNT];
+    int vifs_count;
 
     bool paused;
     bool paused_set;
@@ -186,7 +185,7 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
         (*guest)->hyp.guest.xen->console.be_id = 0;
     }
 
-    for (int i = 0; i < conf->vifs_nr; i++) {
+    for (int i = 0; i < conf->vifs_count; i++) {
         (*guest)->hyp.guest.xen->devs[i].type = h2_xen_dev_t_vif;
         (*guest)->hyp.guest.xen->devs[i].dev.vif.id = i;
         (*guest)->hyp.guest.xen->devs[i].dev.vif.backend_id = 0;
@@ -240,7 +239,7 @@ static int __parse_vif(json_t* vif, config* conf)
         goto out;
     }
 
-    vid = conf->vifs_nr;
+    vid = conf->vifs_count;
 
     json_object_foreach(vif, key, value) {
         if (strcmp(key, "ip") == 0) {
@@ -305,7 +304,7 @@ static int __parse_vif(json_t* vif, config* conf)
         }
     }
 
-    conf->vifs_nr++;
+    conf->vifs_count++;
 
     return 0;
 
@@ -580,7 +579,7 @@ static int __parse_root(json_t* root, config* conf)
             }
             conf->address_size_set = true;
         } else if (strcmp(key, "vifs") == 0) {
-            if (conf->vifs_nr) {
+            if (conf->vifs_count) {
                 fprintf(stderr, "Parameter 'vifs' defined multiple times.\n");
                 ret = EINVAL;
                 goto out;
