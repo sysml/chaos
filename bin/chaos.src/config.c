@@ -51,10 +51,14 @@
 
 struct config {
     const char* name;
+    bool name_set;
     const char* kernel;
+    bool kernel_set;
     const char* cmdline;
+    bool cmdline_set;
 
     unsigned int memory;
+    bool memory_set;
 
     struct {
         int count;
@@ -69,13 +73,15 @@ struct config {
     bool address_size_set;
 
     struct {
-        bool ip_set;
         struct in_addr ip;
-        bool mac_set;
+        bool ip_set;
         uint8_t mac[6];
+        bool mac_set;
         const char* bridge;
+        bool bridge_set;
     } vifs[DEV_MAX_COUNT];
     int vifs_count;
+    bool vifs_set;
 
     bool paused;
     bool paused_set;
@@ -88,6 +94,8 @@ struct config {
         bool dev_meth_set;
     } xen;
     bool xen_set;
+
+    bool error;
 };
 typedef struct config config;
 
@@ -97,38 +105,6 @@ static void __init(config* conf)
     memset(conf, 0, sizeof(config));
 
     conf->address_size = 64;
-}
-
-static int __check(config* conf)
-{
-    int ret;
-
-    ret = EINVAL;
-
-    if (conf->name == NULL) {
-        fprintf(stderr, "Missing parameter 'name'\n");
-        goto out;
-    }
-
-    if (conf->kernel == NULL) {
-        fprintf(stderr, "Missing parameter 'kernel'\n");
-        goto out;
-    }
-
-    if (conf->memory == 0) {
-        fprintf(stderr, "Missing parameter 'memory'\n");
-        goto out;
-    }
-
-    if (!conf->vcpus_set) {
-        fprintf(stderr, "Missing parameter 'vcpus'\n");
-        goto out;
-    }
-
-    ret = 0;
-
-out:
-    return ret;
 }
 
 static int __to_h2_xen(config* conf, h2_guest** guest)
@@ -202,6 +178,7 @@ out:
     return ret;
 }
 
+
 static int __parse_ip(struct in_addr* ip, const char* ip_str)
 {
     if (inet_aton(ip_str, ip) == 0) {
@@ -225,7 +202,8 @@ static int __parse_mac(uint8_t mac[6], const char* mac_str)
     return 0;
 }
 
-static int __parse_vif(json_t* vif, config* conf)
+
+static void __parse_vif(json_t* vif, config* conf)
 {
     int ret;
 
@@ -235,8 +213,14 @@ static int __parse_vif(json_t* vif, config* conf)
 
     if (!json_is_object(vif)) {
         fprintf(stderr, "Parameter 'vifs' contains invalid element. Must be array of objects.\n");
-        ret = EINVAL;
-        goto out;
+        conf->error = true;
+        return;
+    }
+
+    if (conf->vifs_count >= DEV_MAX_COUNT) {
+        fprintf(stderr, "Too many vifs defined. Maximum %d supported.\n", DEV_MAX_COUNT);
+        conf->error = true;
+        return;
     }
 
     vid = conf->vifs_count;
@@ -245,77 +229,70 @@ static int __parse_vif(json_t* vif, config* conf)
         if (strcmp(key, "ip") == 0) {
             if (conf->vifs[vid].ip_set) {
                 fprintf(stderr, "Parameter 'ip' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->vifs[vid].ip_set = true;
 
             const char* ip_str = json_string_value(value);
             if (ip_str == NULL) {
                 fprintf(stderr, "Parameter 'ip' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
             ret = __parse_ip(&(conf->vifs[vid].ip), ip_str);
             if (ret) {
                 fprintf(stderr, "Parameter 'ip' is an invalid IP.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
-            conf->vifs[vid].ip_set = true;
         } else if (strcmp(key, "mac") == 0) {
             if (conf->vifs[vid].mac_set) {
                 fprintf(stderr, "Parameter 'mac' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->vifs[vid].mac_set = true;
 
             const char* mac_str = json_string_value(value);
             if (mac_str == NULL) {
                 fprintf(stderr, "Parameter 'mac' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
             ret = __parse_mac(conf->vifs[vid].mac, mac_str);
             if (ret) {
                 fprintf(stderr, "Parameter 'mac' is an invalid MAC.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
-            conf->vifs[vid].mac_set = true;
         } else if (strcmp(key, "bridge") == 0) {
-            if (conf->vifs[vid].bridge) {
+            if (conf->vifs[vid].bridge_set) {
                 fprintf(stderr, "Parameter 'bridge' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->vifs[vid].bridge_set = true;
 
             conf->vifs[vid].bridge = json_string_value(value);
             if (conf->vifs[vid].bridge == NULL) {
                 fprintf(stderr, "Parameter 'bridge' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
         } else {
             fprintf(stderr, "Invalid parameter '%s' on vif definition.\n", key);
-            ret = EINVAL;
-            goto out;
+            conf->error = true;
         }
     }
 
     conf->vifs_count++;
-
-    return 0;
-
-out:
-    return ret;
 }
 
-static int __parse_vcpus(json_t* vcpus, config* conf)
+static void __parse_vcpus(json_t* vcpus, config* conf)
 {
-    int ret;
-
     size_t idxi;
     size_t idxj;
     json_t* map;
@@ -329,127 +306,123 @@ static int __parse_vcpus(json_t* vcpus, config* conf)
             if (strcmp(key, "count") == 0) {
                 if (conf->vcpus.count_set) {
                     fprintf(stderr, "Parameter 'count' defined multiple times.\n");
-                    ret = EINVAL;
-                    goto out;
+                    conf->error = true;
+                    continue;
                 }
+
+                conf->vcpus.count_set = true;
 
                 conf->vcpus.count = json_integer_value(value);
                 if (conf->vcpus.count == 0) {
                     fprintf(stderr, "Parameter 'count' is invalid, must be positive integer.\n");
-                    ret = EINVAL;
-                    goto out;
+                    conf->error = true;
                 }
-                conf->vcpus.count_set = true;
             } else if (strcmp(key, "cpumap") == 0) {
                 if (conf->vcpus.cpumap_set) {
                     fprintf(stderr, "Parameter 'cpumap' defined multiple times.\n");
-                    ret = EINVAL;
-                    goto out;
+                    conf->error = true;
+                    continue;
                 }
 
+                conf->vcpus.cpumap_set = true;
+
                 if (!json_is_array(value)) {
-                    fprintf(stderr, "Parameter 'cpumap' has invalid type, must be array.\n");
-                    ret = EINVAL;
-                    goto out;
+                    fprintf(stderr, "Parameter 'cpumap' of 'vcpus' has invalid type,"
+                            "must be array.\n");
+                    conf->error = true;
+                    continue;
                 }
 
                 json_array_foreach(value, idxi, map) {
                     if (!json_is_array(map)) {
-                        fprintf(stderr, "Element of 'cpumap' has invalid type,"
-                                "must be array of integers.\n");
-                        ret = EINVAL;
-                        goto out;
+                        fprintf(stderr, "Element of 'cpumap' in 'vcpus' has invalid type,"
+                                "must be array.\n");
+                        conf->error = true;
+                        continue;
                     }
 
                     json_array_foreach(map, idxj, cpuid) {
                         if (!json_is_integer(cpuid)) {
-                            fprintf(stderr, "Element of 'cpumap' has invalid type,"
-                                    "must be array of integers.\n");
-                            ret = EINVAL;
-                            goto out;
+                            fprintf(stderr, "Element of 'cpumap' in 'vcpus' contains invalid"
+                                    "element. Must be array of integers.\n");
+                            conf->error = true;
+                            continue;
                         }
 
                         cpuid_val = json_integer_value(cpuid);
                         if (cpuid_val < 0) {
                             fprintf(stderr, "Invalid cpuid specified on 'cpumap' definition.\n");
-                            ret = EINVAL;
-                            goto out;
+                            conf->error = true;
+                            continue;
                         }
 
                         h2_cpu_mask_set(conf->vcpus.cpumask[idxi], cpuid_val);
                     }
                 }
-                conf->vcpus.cpumap_set = true;
             } else {
                 fprintf(stderr, "Invalid parameter '%s' on vcpus definition.\n", key);
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
         }
     } else {
+        conf->vcpus.count_set = true;
+
         /* It's okay to call without check type, returns 0. */
         conf->vcpus.count = json_integer_value(vcpus);
         if (conf->vcpus.count == 0) {
             fprintf(stderr, "Parameter 'vpcus' is invalid, must be positive integer.\n");
-            ret = EINVAL;
-            goto out;
+            conf->error = true;
         }
-        conf->vcpus.count_set = true;
     }
 
     if (!conf->vcpus.count_set) {
         fprintf(stderr, "Missing parameter 'count' on 'vcpus'\n");
-        ret = EINVAL;
-        goto out;
+        conf->error = true;
     }
-
-    return 0;
-
-out:
-    return ret;
 }
 
-static int __parse_xen(json_t* xen, config* conf)
+static void __parse_xen(json_t* xen, config* conf)
 {
-    int ret;
-
     json_t* value;
     const char* key;
 
     if (!json_is_object(xen)) {
         fprintf(stderr, "Parameter 'xen' has invalid type, must be object.\n");
-        ret = EINVAL;
-        goto out;
+        conf->error = true;
+        return;
     }
 
     json_object_foreach(xen, key, value) {
         if (strcmp(key, "pvh") == 0) {
             if (conf->xen.pvh_set) {
                 fprintf(stderr, "Parameter 'pvh' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->xen.pvh_set = true;
 
             if (!json_is_boolean(value)) {
                 fprintf(stderr, "Parameter 'pvh' has invalid type, must be boolean.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
             conf->xen.pvh = json_boolean_value(value);
-            conf->xen.pvh_set = true;
         } else if (strcmp(key, "dev_method") == 0) {
             if (conf->xen.dev_meth_set) {
                 fprintf(stderr, "Parameter 'dev_meth' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->xen.dev_meth_set = true;
 
             const char* meth = json_string_value(value);
             if (meth == NULL) {
                 fprintf(stderr, "Parameter 'dev_meth' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
             if (strcmp(meth, "xenstore") == 0) {
@@ -464,28 +437,17 @@ static int __parse_xen(json_t* xen, config* conf)
                         " or noxs"
 #endif
                         ".\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
-
-            conf->xen.dev_meth_set = true;
         } else {
             fprintf(stderr, "Invalid parameter '%s' on xen definition.\n", key);
-            ret = EINVAL;
-            goto out;
+            conf->error = true;
         }
     }
-
-    return 0;
-
-out:
-    return ret;
 }
 
-static int __parse_root(json_t* root, config* conf)
+static void __parse_root(json_t* root, config* conf)
 {
-    int ret;
-
     size_t idx;
     json_t* value;
     json_t* vif;
@@ -493,148 +455,162 @@ static int __parse_root(json_t* root, config* conf)
 
     if (!json_is_object(root)) {
         fprintf(stderr, "Root element has invalid type, must be object.\n");
-        ret = EINVAL;
-        goto out;
+        conf->error = true;
+        return;
     }
 
     json_object_foreach(root, key, value) {
         if (strcmp(key, "name") == 0) {
-            if (conf->name) {
+            if (conf->name_set) {
                 fprintf(stderr, "Parameter 'name' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->name_set = true;
 
             conf->name = json_string_value(value);
             if (conf->name == NULL) {
                 fprintf(stderr, "Parameter 'name' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
         } else if (strcmp(key, "kernel") == 0) {
-            if (conf->kernel) {
+            if (conf->kernel_set) {
                 fprintf(stderr, "Parameter 'kernel' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->kernel_set = true;
 
             conf->kernel = json_string_value(value);
             if (conf->kernel == NULL) {
                 fprintf(stderr, "Parameter 'kernel' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
         } else if (strcmp(key, "cmdline") == 0) {
-            if (conf->cmdline) {
+            if (conf->cmdline_set) {
                 fprintf(stderr, "Parameter 'cmdline' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->cmdline_set = true;
 
             conf->cmdline = json_string_value(value);
             if (conf->cmdline == NULL) {
                 fprintf(stderr, "Parameter 'cmdline' has invalid type, must be string.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
         } else if (strcmp(key, "memory") == 0) {
-            if (conf->memory) {
+            if (conf->memory_set) {
                 fprintf(stderr, "Parameter 'memory' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->memory_set = true;
 
             /* It's okay to call without check type, returns 0. */
             conf->memory = json_integer_value(value);
             if (conf->memory == 0) {
                 fprintf(stderr, "Parameter 'memory' is invalid, must be positive integer.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
         } else if (strcmp(key, "vcpus") == 0) {
             if (conf->vcpus_set) {
                 fprintf(stderr, "Parameter 'vcpus' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
-            ret = __parse_vcpus(value, conf);
-            if (ret) {
-                goto out;
-            }
             conf->vcpus_set = true;
+
+            __parse_vcpus(value, conf);
         } else if (strcmp(key, "address_size") == 0) {
             if (conf->address_size_set) {
                 fprintf(stderr, "Parameter 'address_size' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->address_size_set = true;
 
             /* It's okay to call without check type, returns 0. */
             conf->address_size = json_integer_value(value);
             if (conf->address_size != 32 && conf->address_size != 64) {
                 fprintf(stderr, "Parameter 'vpcus' is invalid, must be positive integer.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
             }
-            conf->address_size_set = true;
         } else if (strcmp(key, "vifs") == 0) {
-            if (conf->vifs_count) {
+            if (conf->vifs_set) {
                 fprintf(stderr, "Parameter 'vifs' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->vifs_set = true;
 
             if (!json_is_array(value)) {
                 fprintf(stderr, "Parameter 'vifs' has invalid type, must be array.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
-            ret = 0;
             json_array_foreach(value, idx, vif) {
-                ret = __parse_vif(vif, conf);
-                if (ret) {
-                    goto out;
-                }
+                __parse_vif(vif, conf);
             }
         } else if (strcmp(key, "paused") == 0) {
             if (conf->paused_set) {
                 fprintf(stderr, "Parameter 'paused' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
+
+            conf->paused_set = true;
 
             if (!json_is_boolean(value)) {
                 fprintf(stderr, "Parameter 'paused' has invalid type, must be boolean.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
             conf->paused = json_boolean_value(value);
-            conf->paused_set = true;
         } else if (strcmp(key, "xen") == 0) {
             if (conf->xen_set) {
                 fprintf(stderr, "Parameter 'xen' defined multiple times.\n");
-                ret = EINVAL;
-                goto out;
+                conf->error = true;
+                continue;
             }
 
-            ret = __parse_xen(value, conf);
-            if (ret) {
-                goto out;
-            }
+            conf->xen_set = true;
+
+            __parse_xen(value, conf);
         } else {
             fprintf(stderr, "Invalid parameter '%s' on guest definition.\n", key);
-            ret = EINVAL;
-            goto out;
+            conf->error = true;
         }
     }
 
-    return 0;
+    if (!conf->name_set) {
+        fprintf(stderr, "Missing parameter 'name'\n");
+        conf->error = true;
+    }
 
-out:
-    return ret;
+    if (!conf->kernel_set) {
+        fprintf(stderr, "Missing parameter 'kernel'\n");
+        conf->error = true;
+    }
+
+    if (!conf->memory_set) {
+        fprintf(stderr, "Missing parameter 'memory'\n");
+        conf->error = true;
+    }
+
+    if (!conf->vcpus_set) {
+        fprintf(stderr, "Missing parameter 'vcpus'\n");
+        conf->error = true;
+    }
 }
 
 int config_parse(char* fpath, h2_hyp_t hyp, h2_guest** guest)
@@ -654,13 +630,9 @@ int config_parse(char* fpath, h2_hyp_t hyp, h2_guest** guest)
         goto out;
     }
 
-    ret = __parse_root(root, &conf);
-    if (ret) {
-        goto out_root;
-    }
-
-    ret = __check(&conf);
-    if (ret) {
+    __parse_root(root, &conf);
+    if (conf.error) {
+        ret = EINVAL;
         goto out_root;
     }
 
