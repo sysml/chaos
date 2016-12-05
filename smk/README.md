@@ -25,15 +25,15 @@ SimpleMaKe based projects have always the same base directory structure:
 
 The idea behind this scheme is to always provide most of the functionality as
 a library that is then used by one or more very simple applications.
-Applications have only the simple tasks of read command line arguments and/or
-configurations files, and implement some sort of main loop that mostly calls
-libraries, being therefore relatively simple. Application specific headers
-(e.g. headers relative to configuration parsing), should be placed under `bin/`
+Applications have only the simple tasks of reading command line arguments and/or
+configurations files, and implementing some sort of main loop that mostly calls
+libraries, being therefore relatively simple. Application-specific headers
+(e.g., headers relative to configuration parsing) should be placed under `bin/`
 and imported by the application with `""` as opposed to `<>`.
 
 Although the idea is to always write most of the functionality as a library you
-don't have to build it as a library, instead you can build everything as a
-static binary. The reference text bellow explains the multiple ways you can use
+don't have to build it as a library; instead you can build everything as a
+static binary. The reference text below explains the multiple ways you can use
 smk.
 
 ## Basic targets
@@ -73,7 +73,7 @@ compiling and linking `app.c` located under `bin/` directory.
 
 ## SimpleMaKe reference
 
-Simple make defines a set of functions that let you define what to build and a
+SimpleMaKe defines a set of functions that let you define what to build and a
 set of configuration variables to configure the behaviour of the system.
 
 Please define the configuration variables before `include smk/s.mk`. To call
@@ -130,8 +130,9 @@ Example usage: `$(eval $(call smk_depend,app,apl))`
 # SimpleMaKe based Makefile example
 
 Let's now define a more complex Makfile to build an application called app,
-comprised of two source files and a library called apl, comprised of two more
-source files. Define the dependency between them and a set of build flags.
+comprised of two source files, as well as a library called apl, comprised of
+two more source files. The following code defines the dependency between the
+two and sets a few build flags.
 
 ```
 include smk/s.mk
