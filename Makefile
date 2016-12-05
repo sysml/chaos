@@ -22,9 +22,9 @@ XEN_LDFLAGS	+= -Wl,-rpath-link,$(XEN_ROOT)/dist/install/$(XEN_PREFIX)/lib
 
 # Chaos
 chaos_obj		:=
-chaos_obj		+= bin/chaos.src/config.o
-chaos_obj		+= bin/chaos.src/cmdline.o
-chaos_obj		+= bin/chaos.src/chaos.o
+chaos_obj		+= bin/chaos.o
+chaos_obj		+= lib/chaos/cmdline.o
+chaos_obj		+= lib/chaos/config.o
 
 $(eval $(call smk_binary,chaos,$(chaos_obj)))
 $(eval $(call smk_depend,chaos,h2))

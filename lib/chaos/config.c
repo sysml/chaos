@@ -34,7 +34,7 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include "config.h"
+#include <chaos/config.h>
 
 #include <h2/guest.h>
 

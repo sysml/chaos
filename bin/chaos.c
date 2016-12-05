@@ -34,8 +34,8 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include "config.h"
-#include "cmdline.h"
+#include <chaos/config.h>
+#include <chaos/cmdline.h>
 
 
 int main(int argc, char** argv)
