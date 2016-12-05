@@ -34,7 +34,7 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include "cmdline.h"
+#include <chaos/cmdline.h>
 
 #include <errno.h>
 #include <getopt.h>
