@@ -36,6 +36,8 @@
 
 #include "config.h"
 
+#include <h2/guest.h>
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -55,8 +57,14 @@ struct config {
     bool memory_set;
     unsigned int memory;
 
+    struct {
+        int count;
+        bool count_set;
+
+        h2_cpu_mask_t cpumask[H2_GUEST_VCPUS_MAX];
+        bool cpumap_set;
+    } vcpus;
     bool vcpus_set;
-    unsigned int vcpus;
 
     bool address_size_set;
     unsigned int address_size;
@@ -113,7 +121,7 @@ static int __check(config* conf)
         goto out;
     }
 
-    if (conf->vcpus == 0) {
+    if (!conf->vcpus_set) {
         fprintf(stderr, "Missing parameter 'vcpus'\n");
         goto out;
     }
@@ -140,7 +148,11 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
     (*guest)->cmdline = strdup(conf->cmdline);
 
     (*guest)->memory = conf->memory * 1024;
-    (*guest)->vcpus.count = conf->vcpus;
+    (*guest)->vcpus.count = conf->vcpus.count;
+    if (conf->vcpus.cpumap_set) {
+        memcpy((*guest)->vcpus.mask, conf->vcpus.cpumask,
+                sizeof(h2_cpu_mask_t[H2_GUEST_VCPUS_MAX]));
+    }
     (*guest)->address_size = conf->address_size;
 
     (*guest)->paused = conf->paused;
@@ -301,6 +313,103 @@ out:
     return ret;
 }
 
+static int __parse_vcpus(json_t* vcpus, config* conf)
+{
+    int ret;
+
+    size_t idxi;
+    size_t idxj;
+    json_t* map;
+    json_t* cpuid;
+    json_t* value;
+    int cpuid_val;
+    const char* key;
+
+    if (json_is_object(vcpus)) {
+        json_object_foreach(vcpus, key, value) {
+            if (strcmp(key, "count") == 0) {
+                if (conf->vcpus.count_set) {
+                    fprintf(stderr, "Parameter 'count' defined multiple times.\n");
+                    ret = EINVAL;
+                    goto out;
+                }
+
+                conf->vcpus.count = json_integer_value(value);
+                if (conf->vcpus.count == 0) {
+                    fprintf(stderr, "Parameter 'count' is invalid, must be positive integer.\n");
+                    ret = EINVAL;
+                    goto out;
+                }
+                conf->vcpus.count_set = true;
+            } else if (strcmp(key, "cpumap") == 0) {
+                if (conf->vcpus.cpumap_set) {
+                    fprintf(stderr, "Parameter 'cpumap' defined multiple times.\n");
+                    ret = EINVAL;
+                    goto out;
+                }
+
+                if (!json_is_array(value)) {
+                    fprintf(stderr, "Parameter 'cpumap' has invalid type, must be array.\n");
+                    ret = EINVAL;
+                    goto out;
+                }
+
+                json_array_foreach(value, idxi, map) {
+                    if (!json_is_array(map)) {
+                        fprintf(stderr, "Element of 'cpumap' has invalid type,"
+                                "must be array of integers.\n");
+                        ret = EINVAL;
+                        goto out;
+                    }
+
+                    json_array_foreach(map, idxj, cpuid) {
+                        if (!json_is_integer(cpuid)) {
+                            fprintf(stderr, "Element of 'cpumap' has invalid type,"
+                                    "must be array of integers.\n");
+                            ret = EINVAL;
+                            goto out;
+                        }
+
+                        cpuid_val = json_integer_value(cpuid);
+                        if (cpuid_val < 0) {
+                            fprintf(stderr, "Invalid cpuid specified on 'cpumap' definition.\n");
+                            ret = EINVAL;
+                            goto out;
+                        }
+
+                        h2_cpu_mask_set(conf->vcpus.cpumask[idxi], cpuid_val);
+                    }
+                }
+                conf->vcpus.cpumap_set = true;
+            } else {
+                fprintf(stderr, "Invalid parameter '%s' on vcpus definition.\n", key);
+                ret = EINVAL;
+                goto out;
+            }
+        }
+    } else {
+        /* It's okay to call without check type, returns 0. */
+        conf->vcpus.count = json_integer_value(vcpus);
+        if (conf->vcpus.count == 0) {
+            fprintf(stderr, "Parameter 'vpcus' is invalid, must be positive integer.\n");
+            ret = EINVAL;
+            goto out;
+        }
+        conf->vcpus.count_set = true;
+    }
+
+    if (!conf->vcpus.count_set) {
+        fprintf(stderr, "Missing parameter 'count' on 'vcpus'\n");
+        ret = EINVAL;
+        goto out;
+    }
+
+    return 0;
+
+out:
+    return ret;
+}
+
 static int __parse_xen(json_t* xen, config* conf)
 {
     int ret;
@@ -444,19 +553,17 @@ static int __parse_root(json_t* root, config* conf)
                 goto out;
             }
         } else if (strcmp(key, "vcpus") == 0) {
-            if (conf->vcpus) {
+            if (conf->vcpus_set) {
                 fprintf(stderr, "Parameter 'vcpus' defined multiple times.\n");
                 ret = EINVAL;
                 goto out;
             }
 
-            /* It's okay to call without check type, returns 0. */
-            conf->vcpus = json_integer_value(value);
-            if (conf->vcpus == 0) {
-                fprintf(stderr, "Parameter 'vpcus' is invalid, must be positive integer.\n");
-                ret = EINVAL;
+            ret = __parse_vcpus(value, conf);
+            if (ret) {
                 goto out;
             }
+            conf->vcpus_set = true;
         } else if (strcmp(key, "address_size") == 0) {
             if (conf->address_size_set) {
                 fprintf(stderr, "Parameter 'address_size' defined multiple times.\n");

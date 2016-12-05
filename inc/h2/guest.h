@@ -49,6 +49,21 @@ enum h2_kernel_buff_t {
 };
 typedef enum h2_kernel_buff_t h2_kernel_buff_t;
 
+
+#define H2_CPUS_MAX 256
+#define H2_GUEST_VCPUS_MAX 128
+
+typedef uint64_t h2_cpu_mask_t[4];
+
+#define h2_cpu_mask_set(mask, cpuid) \
+    (mask)[cpuid / 64] |= (1LU << (cpuid % 64))
+
+#define h2_cpu_mask_clear(mask, cpuid) \
+    (mask)[cpuid / 64] &= ~(1LU << (cpuid % 64))
+
+#define h2_cpu_mask_is_set(mask, cpuid) \
+    (((mask)[cpuid / 64] & (1LU << (cpuid % 64))) != 0)
+
 struct h2_guest {
     h2_guest_id id;
 
@@ -59,7 +74,9 @@ struct h2_guest {
 
     struct {
         int count;
+        h2_cpu_mask_t mask[H2_GUEST_VCPUS_MAX];
     } vcpus;
+
     uint address_size;
 
     struct {
