@@ -28,6 +28,9 @@ $(error "Non-supported language $(smk_lang)")
 endif
 endif
 
+# Include cscope and ctags support
+include $(smk_dir)/tags.mk
+
 # Provide smk functions
 define smk_binary
 $(1)_bin	:= bin/$(1)
