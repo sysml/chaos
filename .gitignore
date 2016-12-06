@@ -21,3 +21,6 @@
 
 # cscope
 cscope.*
+
+# ctags
+TAGS
