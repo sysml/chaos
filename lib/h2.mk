@@ -8,6 +8,9 @@ libh2_obj		+= lib/h2/xen/xs.o
 libh2_obj		+= lib/h2/xen/console.o
 libh2_obj		+= lib/h2/h2.o
 libh2_obj		+= lib/h2/xen.o
+libh2_obj		+= lib/h2/stream.o
+libh2_obj		+= lib/h2/os_stream_file.o
+libh2_obj		+= lib/h2/os_stream_net.o
 ifeq ($(CONFIG_H2_XEN_NOXS),y)
 libh2_obj		+= lib/h2/xen/noxs.o
 endif
