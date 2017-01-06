@@ -236,6 +236,28 @@ out_err:
     return ret;
 }
 
+static int __noxs_domain_pwrctl(h2_xen_ctx* ctx, h2_guest* guest, enum noxs_user_shutdown_type type)
+{
+    int ret;
+    struct noxs_ioctl_guest_close ioctlc;
+
+    ioctlc.type = type;
+    ioctlc.domid = guest->id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_GUEST_CLOSE, &ioctlc);
+
+    return ret;
+}
+
+int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_poweroff);
+}
+
+int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_suspend);
+}
 
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
 {

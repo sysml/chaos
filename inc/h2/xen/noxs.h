@@ -43,6 +43,9 @@
 int h2_xen_noxs_open(h2_xen_ctx* ctx);
 int h2_xen_noxs_close(h2_xen_ctx* ctx);
 
+int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest);
+
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
