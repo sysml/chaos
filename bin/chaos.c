@@ -34,8 +34,8 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include <chaos/config.h>
 #include <chaos/cmdline.h>
+#include <h2/config.h>
 
 
 int main(int argc, char** argv)
@@ -47,6 +47,7 @@ int main(int argc, char** argv)
     h2_ctx* ctx;
     h2_guest* guest;
     h2_hyp_cfg hyp_cfg;
+    stream_cfg strm_cfg;
 
 
     cmdline_parse(argc, argv, &cmd);
@@ -74,13 +75,18 @@ int main(int argc, char** argv)
             break;
 
         case op_create:
-            ret = config_parse(cmd.kernel, h2_hyp_t_xen, &guest);
+            strm_cfg.type = stream_type_file;
+            strm_cfg.file.op = stream_file_op_read;
+            strm_cfg.file.filename = cmd.kernel;
+
+            ctx->ctrl_type = h2_guest_ctrl_t_create;
+            ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, &strm_cfg, false);
             if (ret) {
                 goto out_h2;
             }
 
             for (int i = 0; i < cmd.nr_doms; i++) {
-                ret = h2_guest_create(ctx, guest);
+                ret = h2_guest_create(ctx, &guest);
                 if (ret) {
                     goto out_guest;
                 }
@@ -88,6 +94,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
+            h2_guest_ctrl_create_destroy(&ctx->ctrl.create);
             break;
 
         case op_destroy:
@@ -102,6 +109,90 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
+            break;
+
+        case op_shutdown:
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_shutdown(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+            break;
+
+        case op_save:
+            strm_cfg.type = stream_type_file;
+            strm_cfg.file.op = stream_file_op_write;
+            strm_cfg.file.filename = cmd.filename;
+
+            ctx->ctrl_type = h2_guest_ctrl_t_save;
+            ret = h2_guest_ctrl_save_init(&ctx->ctrl.save, &strm_cfg);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_save(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+            h2_guest_ctrl_save_destroy(&ctx->ctrl.save);
+            break;
+
+        case op_restore:
+            strm_cfg.type = stream_type_file;
+            strm_cfg.file.op = stream_file_op_read;
+            strm_cfg.file.filename = cmd.filename;
+
+            ctx->ctrl_type = h2_guest_ctrl_t_create;
+            ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, &strm_cfg, true);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_create(ctx, &guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+            h2_guest_ctrl_create_destroy(&ctx->ctrl.create);
+            break;
+
+        case op_migrate:
+            strm_cfg.type = stream_type_net;
+            strm_cfg.net.mode = stream_net_client;
+            strm_cfg.net.endp.client.server_endp = cmd.destination;
+
+            ret = h2_guest_ctrl_save_init(&ctx->ctrl.save, &strm_cfg);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_save(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+
+            h2_guest_ctrl_save_destroy(&ctx->ctrl.save);
             break;
     }
 

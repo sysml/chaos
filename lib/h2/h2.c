@@ -153,6 +153,9 @@ int h2_guest_query(h2_ctx* ctx, h2_guest_id id, h2_guest** guest)
 
     (*guest)->id = id;
 
+    if (ctx->ctrl_type == h2_guest_ctrl_t_save)
+        (*guest)->save = true;
+
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:
             ret = h2_xen_guest_query(ctx->hyp.ctx.xen, *guest);
@@ -222,19 +225,94 @@ void h2_guest_free(h2_guest** guest)
     (*guest) = NULL;
 }
 
-int h2_guest_create(h2_ctx* ctx, h2_guest* guest)
+
+int h2_guest_create(h2_ctx* ctx, h2_guest** guest)
 {
     int ret;
 
+    h2_guest_ctrl_create* gc;
+
+    gc = &ctx->ctrl.create;
+
+    if (gc->cb_read_header) {
+        ret = gc->cb_read_header(gc);
+        if (ret) {
+            goto out_ret;
+        }
+    }
+
+    ret = gc->cb_read_config(gc);
+    if (ret) {
+        goto out_ret;
+    }
+
+    ret = gc->cb_do_config(&gc->serialized_cfg, ctx->hyp.type, guest);
+    if (ret) {
+        goto out_ret;
+    }
+
+    if (gc->restore) {
+        (*guest)->restore = true;
+        (*guest)->sd = &gc->sd;
+    }
+
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:
-            ret = h2_xen_domain_create(ctx->hyp.ctx.xen, guest);
+            ret = h2_xen_domain_create(ctx->hyp.ctx.xen, *guest);
             break;
         default:
             ret = EINVAL;
             break;
     }
 
+out_ret:
+    return ret;
+}
+
+int h2_guest_save(h2_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    h2_guest_ctrl_save* gs;
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_domain_info(ctx->hyp.ctx.xen, guest);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+    gs = &ctx->ctrl.save;
+
+    ret = gs->cb_do_config(&gs->serialized_cfg, ctx->hyp.type, guest);
+    if (ret) {
+        goto out_ret;
+    }
+
+    ret = gs->cb_write_header(gs);
+    if (ret) {
+        goto out_ret;
+    }
+
+    ret = gs->cb_write_config(gs);
+    if (ret) {
+        goto out_ret;
+    }
+
+    guest->sd = &gs->sd;
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_domain_save(ctx->hyp.ctx.xen, guest);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+out_ret:
     return ret;
 }
 
@@ -245,6 +323,22 @@ int h2_guest_destroy(h2_ctx* ctx, h2_guest* guest)
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:
             ret = h2_xen_domain_destroy(ctx->hyp.ctx.xen, guest);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+    return ret;
+}
+
+int h2_guest_shutdown(h2_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_domain_shutdown(ctx->hyp.ctx.xen, guest);
             break;
         default:
             ret = EINVAL;

@@ -40,10 +40,24 @@
 
 #include <h2/hyp.h>
 #include <h2/guest.h>
+#include <h2/guest_ctrl.h>
 
+
+enum h2_guest_ctrl_type {
+    h2_guest_ctrl_t_none ,
+    h2_guest_ctrl_t_create ,
+    h2_guest_ctrl_t_save ,
+};
+typedef enum h2_guest_ctrl_type h2_guest_ctrl_type;
 
 struct h2_ctx {
     h2_hyp_ctx hyp;
+
+    h2_guest_ctrl_type ctrl_type;
+    union {
+        h2_guest_ctrl_create create;
+        h2_guest_ctrl_save save;
+    } ctrl;
 };
 typedef struct h2_ctx h2_ctx;
 
@@ -56,7 +70,10 @@ int h2_guest_query(h2_ctx* ctx, h2_guest_id id, h2_guest** guest);
 void h2_guest_reuse(h2_guest* guest);
 void h2_guest_free(h2_guest** guest);
 
-int h2_guest_create(h2_ctx* ctx, h2_guest* guest);
+int h2_guest_create(h2_ctx* ctx, h2_guest** guest);
 int h2_guest_destroy(h2_ctx* ctx, h2_guest* guest);
+int h2_guest_shutdown(h2_ctx* ctx, h2_guest* guest);
+
+int h2_guest_save(h2_ctx* ctx, h2_guest* guest);
 
 #endif /* __H2__H2__H__ */
