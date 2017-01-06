@@ -169,6 +169,24 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
                 devs[j].dev.vif.meth = h2_xen_dev_meth_t_noxs;
                 devs[j].dev.vif.valid = true;
 
+                if (guest->save) {
+                    struct noxs_ioctl_dev_query_cfg ioctlq;
+
+                    ioctlq.type = noxs_user_dev_vif;
+                    ioctlq.be_id = 0;
+                    ioctlq.fe_id = guest->id;
+                    ioctlq.devid = dev->id;
+
+                    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_QUERY_CFG, &ioctlq);
+                    if (ret) {
+                        goto out_ret;
+                    }
+
+                    memcpy(devs[j].dev.vif.mac, ioctlq.cfg.vif.mac, 6);
+                    devs[j].dev.vif.ip.s_addr = ioctlq.cfg.vif.ip;
+                    devs[j].dev.vif.bridge = strdup(ioctlq.cfg.vif.bridge);
+                }
+
                 break;
 
             case noxs_dev_sysctl:
@@ -181,6 +199,7 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
+out_ret:
     return ret;
 }
 
