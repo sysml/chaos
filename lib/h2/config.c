@@ -34,8 +34,8 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include <chaos/config.h>
-
+#include <h2/h2.h>
+#include <h2/config.h>
 #include <h2/guest.h>
 
 #include <arpa/inet.h>
@@ -110,6 +110,7 @@ static void __init(config* conf)
 static int __to_h2_xen(config* conf, h2_guest** guest)
 {
     int ret;
+    h2_xen_dev *dev;
 
     ret = h2_guest_alloc(guest, h2_hyp_t_xen);
     if (ret) {
@@ -146,6 +147,14 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 #endif
     };
 
+    dev = &(*guest)->hyp.guest.xen->devs[0];
+
+#ifdef CONFIG_H2_XEN_NOXS
+    dev->type = h2_xen_dev_t_sysctl;
+    dev->dev.sysctl.backend_id = 0;
+    dev++;
+#endif
+
     /* TODO: Add console to domain when using NoXS
      * Currently there is no noxs backend available for console, therefore
      * avoid adding a console to the domain since that will make the creation
@@ -162,14 +171,16 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
     }
 
     for (int i = 0; i < conf->vifs_count; i++) {
-        (*guest)->hyp.guest.xen->devs[i].type = h2_xen_dev_t_vif;
-        (*guest)->hyp.guest.xen->devs[i].dev.vif.id = i;
-        (*guest)->hyp.guest.xen->devs[i].dev.vif.backend_id = 0;
-        (*guest)->hyp.guest.xen->devs[i].dev.vif.meth = conf->xen.dev_meth;
-        memcpy(&((*guest)->hyp.guest.xen->devs[i].dev.vif.ip), &(conf->vifs[i].ip),
+        dev->type = h2_xen_dev_t_vif;
+        dev->dev.vif.id = i;
+        dev->dev.vif.backend_id = 0;
+        dev->dev.vif.meth = conf->xen.dev_meth;
+        memcpy(&(dev->dev.vif.ip), &(conf->vifs[i].ip),
                 sizeof(struct in_addr));
-        memcpy((*guest)->hyp.guest.xen->devs[i].dev.vif.mac, conf->vifs[i].mac, 6);
-        (*guest)->hyp.guest.xen->devs[i].dev.vif.bridge = strdup(conf->vifs[i].bridge);
+        memcpy(dev->dev.vif.mac, conf->vifs[i].mac, 6);
+        if (conf->vifs[i].bridge)
+            dev->dev.vif.bridge = strdup(conf->vifs[i].bridge);
+        dev++;
     }
 
     return 0;
@@ -178,10 +189,62 @@ out:
     return ret;
 }
 
+static int __from_h2_xen(config* conf, h2_guest* guest)
+{
+    int ret;
+    h2_xen_dev *dev;
+
+    conf->name = guest->name;
+
+    conf->kernel = guest->kernel.buff.path;
+    conf->cmdline = guest->cmdline;
+
+    conf->memory = guest->memory / 1024;
+    conf->vcpus.count = guest->vcpus.count;
+
+    conf->paused = guest->paused;
+
+    conf->xen.pvh = guest->hyp.guest.xen->pvh;
+
+    if (guest->hyp.guest.xen->xs.active)
+    	conf->xen.dev_meth = h2_xen_dev_meth_t_xs;
+#ifdef CONFIG_H2_XEN_NOXS
+    else if (guest->hyp.guest.xen->noxs.active)
+    	conf->xen.dev_meth = h2_xen_dev_meth_t_noxs;
+#endif
+
+    for (int i = 0; i < H2_XEN_DEV_COUNT_MAX; i++) {
+        dev = &guest->hyp.guest.xen->devs[i];
+
+        if (dev->type == h2_xen_dev_t_vif) {//TODO scale this
+            memcpy(&(conf->vifs[conf->vifs_count].ip), &(dev->dev.vif.ip),
+                    sizeof(struct in_addr));
+            memcpy(conf->vifs[conf->vifs_count].mac, dev->dev.vif.mac, 6);
+            if (dev->dev.vif.bridge)
+                conf->vifs[conf->vifs_count].bridge = strdup(dev->dev.vif.bridge);
+            conf->vifs_count++;
+        }
+    }
+
+    return 0;
+
+out:
+    return ret;
+}
 
 static int __parse_ip(struct in_addr* ip, const char* ip_str)
 {
     if (inet_aton(ip_str, ip) == 0) {
+        return EINVAL;
+    }
+
+    return 0;
+}
+
+static int __dump_ip(const struct in_addr* ip, char** ip_str)
+{
+    *ip_str = inet_ntoa(*ip);
+    if (*ip_str == NULL) {
         return EINVAL;
     }
 
@@ -194,6 +257,20 @@ static int __parse_mac(uint8_t mac[6], const char* mac_str)
 
     ret = sscanf(mac_str, "%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8,
                 &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]);
+
+    if (ret != 6) {
+        return EINVAL;
+    }
+
+    return 0;
+}
+
+static int __dump_mac(const uint8_t mac[6], char* mac_str)
+{
+    int ret;
+
+    ret = sprintf(mac_str, "%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8,
+                mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     if (ret != 6) {
         return EINVAL;
@@ -299,6 +376,33 @@ static void __parse_vifs(json_t* vifs, config* conf)
             }
         }
     }
+}
+
+static int __dump_vif(json_t** vif, config* conf, int vid)
+{
+    int ret;
+
+    char* ip_str = NULL;
+    char mac_str[18];
+
+    *vif = json_object();
+    if (*vif == NULL) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+    __dump_ip(&(conf->vifs[vid].ip), &ip_str);
+    json_object_set_new(*vif, "ip", json_string(ip_str));
+
+    __dump_mac(conf->vifs[vid].mac, mac_str);
+    json_object_set_new(*vif, "mac", json_string(mac_str));
+
+    json_object_set_new(*vif, "bridge", json_string(conf->vifs[vid].bridge));
+
+    return 0;
+
+out:
+    return ret;
 }
 
 static void __parse_vcpus(json_t* vcpus, config* conf)
@@ -454,6 +558,37 @@ static void __parse_xen(json_t* xen, config* conf)
             conf->error = true;
         }
     }
+}
+
+static int __dump_xen(json_t** xen, config* conf)
+{
+    int ret;
+
+    *xen = json_object();
+    if (*xen == NULL) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+    json_object_set_new(*xen, "pvh", json_boolean(conf->xen.pvh));
+
+    if (conf->xen.dev_meth == h2_xen_dev_meth_t_xs) {
+        json_object_set_new(*xen, "dev_method", json_string("xenstore"));
+#ifdef CONFIG_H2_XEN_NOXS
+    } else if (conf->xen.dev_meth == h2_xen_dev_meth_t_noxs) {
+        json_object_set_new(*xen, "dev_method", json_string("noxs"));
+#endif
+    } else {
+        fprintf(stderr, "Invalid 'dev_meth' value: %d.\n",
+                conf->xen.dev_meth);
+        ret = EINVAL;
+        goto out;
+    }
+
+    return 0;
+
+out:
+    return ret;
 }
 
 static void __parse_root(json_t* root, config* conf)
@@ -613,7 +748,61 @@ static void __parse_root(json_t* root, config* conf)
     }
 }
 
-int config_parse(char* fpath, h2_hyp_t hyp, h2_guest** guest)
+static int __dump_root(json_t** root, config* conf)
+{
+    int ret;
+
+    int i;
+    json_t* json_arr;
+    json_t* vif;
+    json_t* xen;
+
+    *root = json_object();
+    if (*root == NULL) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+#define STR(s) (s ? s : "")
+
+    json_object_set_new(*root, "name",     json_string(STR(conf->name)));
+    json_object_set_new(*root, "kernel",   json_string(STR(conf->kernel)));
+    json_object_set_new(*root, "cmdline",  json_string(STR(conf->cmdline)));
+    json_object_set_new(*root, "memory",   json_integer(conf->memory));
+    json_object_set_new(*root, "vcpus",    json_integer(conf->vcpus.count));
+
+    if (conf->vifs_count > 0) {
+        json_arr = json_array();
+        json_object_set_new(*root, "vifs", json_arr);
+
+        ret = 0;
+        for (i = 0; i < conf->vifs_count; i++) {
+            ret = __dump_vif(&vif, conf, i);
+            if (ret) {
+                goto out;
+            }
+
+            json_array_append(json_arr, vif);
+        }
+    }
+
+    json_object_set_new(*root, "paused", json_boolean(conf->paused));
+
+
+    ret = __dump_xen(&xen, conf);
+    if (ret) {
+        goto out;
+    }
+
+    json_object_set_new(*root, "xen", xen);
+
+    return 0;
+
+out:
+    return ret;
+}
+
+int config_parse(h2_serialized_cfg* cfg, h2_hyp_t hyp, h2_guest** guest)
 {
     int ret;
 
@@ -623,7 +812,7 @@ int config_parse(char* fpath, h2_hyp_t hyp, h2_guest** guest)
 
     __init(&conf);
 
-    root = json_load_file(fpath, 0, &json_err);
+    root = json_loadb(cfg->data, cfg->size, 0, &json_err);
     if (root == NULL) {
         fprintf(stderr, "Failed to load file (%s).\n", json_err.text);
         ret = EINVAL;
@@ -654,4 +843,51 @@ out_root:
 
 out:
     return ret;
+}
+
+int config_dump(h2_serialized_cfg* cfg, h2_hyp_t hyp, h2_guest* guest)
+{
+    int ret;
+
+    config conf;
+    json_t* root;
+
+    __init(&conf);
+
+    switch(hyp) {
+        case h2_hyp_t_xen:
+            ret = __from_h2_xen(&conf, guest);
+            break;
+    }
+    if (ret) {
+        goto out_root;
+    }
+
+    ret = __dump_root(&root, &conf);
+    if (ret) {
+        goto out_root;
+    }
+
+    cfg->data = json_dumps(root, 0);
+    if (cfg->data == NULL) {
+        goto out_root;
+    }
+
+    cfg->size = strlen(cfg->data);
+
+out_root:
+    json_decref(root);
+
+out:
+    return ret;
+}
+
+int config_read(h2_serialized_cfg* cfg, stream_desc* sd)
+{
+    return stream_read(sd, cfg->data, cfg->size);
+}
+
+int config_write(h2_serialized_cfg* cfg, stream_desc* sd)
+{
+    return stream_write(sd, cfg->data, cfg->size);
 }
