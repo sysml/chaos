@@ -2,6 +2,7 @@
 libh2_obj		:=
 libh2_obj		+= lib/h2/xen/xc.o
 libh2_obj		+= lib/h2/xen/dev.o
+libh2_obj		+= lib/h2/xen/sysctl.o
 libh2_obj		+= lib/h2/xen/vif.o
 libh2_obj		+= lib/h2/xen/xs.o
 libh2_obj		+= lib/h2/xen/console.o

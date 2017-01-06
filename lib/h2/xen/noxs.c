@@ -168,6 +168,12 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 
                 devs[j].dev.vif.meth = h2_xen_dev_meth_t_noxs;
                 devs[j].dev.vif.valid = true;
+
+                break;
+
+            case noxs_dev_sysctl:
+                devs[j].type = h2_xen_dev_t_sysctl;
+                devs[j].dev.sysctl.backend_id = dev->be_id;
                 break;
 
             default:
@@ -250,6 +256,85 @@ int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
     if (ret) {
         goto out_err;
     }
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
+
+int h2_xen_noxs_sysctl_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_sysctl* sysctl)
+{
+    int ret;
+    struct noxs_ioctl_dev_create ioctlc;
+    struct noxs_ioctl_dev_destroy ioctld;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (sysctl == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ioctlc.type = noxs_user_dev_sysctl;
+    ioctlc.be_id = sysctl->backend_id;
+    ioctlc.fe_id = guest->id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_CREATE, &ioctlc);
+    if (ret) {
+        goto out_err;
+    }
+
+    ret = __dev_append(ctx, guest, noxs_dev_sysctl,
+            ioctlc.devid, ioctlc.be_id, ioctlc.evtchn, ioctlc.grant);
+    if (ret) {
+        goto out_sysctl;
+    }
+
+    return 0;
+
+out_sysctl:
+    ioctld.type = ioctlc.type;
+    ioctld.be_id = ioctlc.be_id;
+    ioctld.fe_id = ioctlc.fe_id;
+    ioctld.devid = ioctlc.devid;
+
+    ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+
+out_err:
+    return ret;
+}
+
+int h2_xen_noxs_sysctl_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_sysctl* sysctl)
+{
+    int ret;
+    struct noxs_ioctl_dev_destroy ioctld;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (sysctl == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ioctld.type = noxs_user_dev_sysctl;
+    ioctld.be_id = sysctl->backend_id;
+    ioctld.fe_id = guest->id;
+    ioctld.devid = 0;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+    if (ret) {
+        goto out_err;
+    }
+
+    __dev_remove(ctx, guest, noxs_dev_sysctl, 0);
 
     return 0;
 
