@@ -44,6 +44,8 @@
 #include <h2/xen/xc.h>
 #include <h2/xen/xs.h>
 
+#include <xc_dom.h>
+
 
 int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
 {
@@ -308,7 +310,11 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
 
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
-            ret = h2_xen_xc_domain_fastboot(ctx, guest);
+            if (guest->restore) {
+                ret = h2_xen_xc_domain_restore(ctx, guest);
+            } else {
+                ret = h2_xen_xc_domain_fastboot(ctx, guest);
+            }
             if (ret) {
                 goto out_dom;
             }
@@ -439,4 +445,39 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 
 
     return ret;
+}
+
+int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+    int _ret;
+
+    if (ctx == NULL || guest == NULL) {
+        return EINVAL;
+    }
+
+    ret = 0;
+
+#ifdef CONFIG_H2_XEN_NOXS
+    if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
+        _ret = h2_xen_noxs_domain_shutdown(ctx, guest);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+    }
+#else
+    /* TODO what should we do for xenstore */
+#endif
+
+    return ret;
+}
+
+int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return h2_xen_xc_domain_save(ctx, guest);
+}
+
+int h2_xen_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return h2_xen_xc_domain_info(ctx, guest);
 }
