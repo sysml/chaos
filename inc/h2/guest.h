@@ -39,6 +39,7 @@
 #define __H2__GUEST__H__
 
 #include <h2/hyp.h>
+#include <h2/stream.h>//TODO temporary?
 
 
 typedef uint64_t h2_guest_id;
@@ -70,7 +71,7 @@ struct h2_guest {
     char* name;
     char* cmdline;
 
-    uint memory;
+    uint memory; /* kilobytes */
 
     struct {
         int count;
@@ -89,6 +90,10 @@ struct h2_guest {
             char* path;
         } buff;
     } kernel;
+
+    bool save;//TODO temporary?
+    bool restore;//TODO temporary?
+    stream_desc* sd;//TODO temporary?
 
     bool paused;
 
