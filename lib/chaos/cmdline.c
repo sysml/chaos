@@ -78,6 +78,20 @@ static int __get_int(const char* str, int* val)
     return 0;
 }
 
+static void __parse_guest_id(const char* id, cmdline* cmd)
+{
+    int ret;
+    int gid;
+
+    ret = __get_int(id, &gid);
+    if (ret || gid < 1) {
+        fprintf(stderr, "Invalid value for 'guest_id' argument.\n");
+        cmd->error = true;
+    } else {
+        cmd->gid = gid;
+    }
+}
+
 static void __parse_create(int argc, char** argv, cmdline* cmd)
 {
     int ret;
@@ -127,22 +141,62 @@ static void __parse_create(int argc, char** argv, cmdline* cmd)
 
 static void __parse_destroy(int argc, char** argv, cmdline* cmd)
 {
-    int ret;
-    int gid;
-
     if (argc != 2) {
         fprintf(stderr, "Invalid number of arguments for 'destroy'.\n");
         cmd->error = true;
         return;
     }
 
-    ret = __get_int(argv[1], &gid);
-    if (ret || gid < 1) {
-        fprintf(stderr, "Invalid value for 'guest_id' argument.\n");
+    __parse_guest_id(argv[1], cmd);
+}
+
+static void __parse_save(int argc, char** argv, cmdline* cmd)
+{
+    if (argc != 3) {
+        fprintf(stderr, "Invalid number of arguments for 'save'.\n");
         cmd->error = true;
-    } else {
-        cmd->gid = gid;
+        return;
     }
+
+    __parse_guest_id(argv[1], cmd);
+
+    cmd->filename = argv[2];
+}
+
+static void __parse_restore(int argc, char** argv, cmdline* cmd)
+{
+    if (argc != 2) {
+        fprintf(stderr, "Invalid number of arguments for 'restore'.\n");
+        cmd->error = true;
+        return;
+    }
+
+    cmd->filename = argv[1];
+}
+
+static void __parse_migrate(int argc, char** argv, cmdline* cmd)
+{
+    if (argc != 4) {
+        fprintf(stderr, "Invalid number of arguments for 'migrate'.\n");
+        cmd->error = true;
+        return;
+    }
+
+    __parse_guest_id(argv[1], cmd);
+
+    errno = 0;
+    cmd->gid = (h2_guest_id) strtol(argv[1], NULL, 10);
+    if (errno) {
+        fprintf(stderr, "Invalid value for 'guest_id' argument'.\n");
+        cmd->error = true;
+    }
+
+    if (inet_aton(argv[2], &cmd->destination.ip) == 0) {
+        cmd->error = true;
+        return;
+    }
+
+    cmd->destination.port = atoi(argv[3]);
 }
 
 static void __validate(cmdline* cmd)
@@ -220,9 +274,28 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
         if (strcmp(argv[optind], "create") == 0) {
             cmd->op = op_create;
             __parse_create(argc, argv, cmd);
+
         } else if (strcmp(argv[optind], "destroy") == 0) {
             cmd->op = op_destroy;
             __parse_destroy(argc, argv, cmd);
+
+        } else if (strcmp(argv[optind], "shutdown") == 0) {
+            cmd->op = op_shutdown;
+            __parse_destroy(argc, argv, cmd);
+
+        } else if (strcmp(argv[optind], "save") == 0) {
+            cmd->op = op_save;
+            __parse_save(argc, argv, cmd);
+
+        } else if (strcmp(argv[optind], "restore") == 0) {
+            cmd->op = op_restore;
+            __parse_restore(argc, argv, cmd);
+
+        } else if (strcmp(argv[optind], "migrate") == 0) {
+            cmd->op = op_migrate;
+            __parse_migrate(argc, argv, cmd);
+
+
         } else {
             cmd->error = true;
 
