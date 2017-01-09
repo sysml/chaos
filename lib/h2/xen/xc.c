@@ -36,6 +36,7 @@
  */
 
 #include <h2/xen/xc.h>
+#include <h2/xen.h>
 
 #define _GNU_SOURCE
 
@@ -541,27 +542,6 @@ int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
     return xc_domain_shutdown(ctx->xc.xci, guest->id, SHUTDOWN_poweroff);
 }
 
-
-struct sr_session {
-    h2_xen_ctx* ctx;
-    h2_guest* guest;
-};
-
-static int save_cb_suspend(void* user)
-{
-    int ret;
-
-    struct sr_session* srs;
-
-    srs = (struct sr_session*) user;
-
-    ret = h2_xen_noxs_domain_suspend(srs->ctx, srs->guest);
-    fprintf(stderr, "dummy suspend %d\n", ret);
-    sleep(3);
-
-    return (ret == 0);
-}
-
 int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -574,7 +554,7 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
     srs.guest = guest;
 
     memset(&save_cbs, 0, sizeof(save_cbs));
-    save_cbs.suspend = save_cb_suspend;
+    save_cbs.suspend = h2_xen_save_cb_suspend;
     save_cbs.data = &srs;
 
     if (guest->sd->cfg->type == stream_type_net)

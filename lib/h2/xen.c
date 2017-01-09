@@ -477,6 +477,26 @@ int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
     return h2_xen_xc_domain_save(ctx, guest);
 }
 
+int h2_xen_save_cb_suspend(void* user)
+{
+    int ret;
+    struct sr_session* srs;
+
+    ret = 0;
+
+    srs = (struct sr_session*) user;
+
+#ifdef CONFIG_H2_XEN_NOXS
+    ret = h2_xen_noxs_domain_suspend(srs->ctx, srs->guest);
+    fprintf(stderr, "dummy suspend %d\n", ret);/* TODO remove */
+    sleep(3);
+#else
+    ret = h2_xen_xs_domain_suspend(srs->ctx, srs->guest);
+#endif
+
+    return (ret == 0);
+}
+
 int h2_xen_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return h2_xen_xc_domain_info(ctx, guest);
