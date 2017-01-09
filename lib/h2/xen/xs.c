@@ -386,6 +386,16 @@ out:
     return ret;
 }
 
+int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return 0; /* TODO */
+}
+
+int h2_xen_xs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return 0; /* TODO */
+}
+
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;

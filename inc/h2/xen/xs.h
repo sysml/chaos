@@ -50,6 +50,9 @@ int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
         evtchn_port_t evtchn, unsigned int gmfn);
 
+int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_xs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest);
+
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);
 
