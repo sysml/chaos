@@ -191,7 +191,6 @@ out:
 
 static int __from_h2_xen(config* conf, h2_guest* guest)
 {
-    int ret;
     h2_xen_dev *dev;
 
     conf->name = guest->name;
@@ -227,9 +226,6 @@ static int __from_h2_xen(config* conf, h2_guest* guest)
     }
 
     return 0;
-
-out:
-    return ret;
 }
 
 static int __parse_ip(struct in_addr* ip, const char* ip_str)
@@ -860,7 +856,7 @@ int config_dump(h2_serialized_cfg* cfg, h2_hyp_t hyp, h2_guest* guest)
             break;
     }
     if (ret) {
-        goto out_root;
+        goto out;
     }
 
     ret = __dump_root(&root, &conf);

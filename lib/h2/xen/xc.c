@@ -297,15 +297,6 @@ out_err:
     return ret;
 }
 
-static int __post_build(h2_xen_ctx* ctx, h2_guest* guest)
-{
-    int ret;
-
-    ret = xc_cpuid_apply_policy(ctx->xc.xci, guest->id, NULL, 0);
-
-    return ret;
-}
-
 static int h2_xen_xc_domain_preboot(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -347,7 +338,7 @@ static int h2_xen_xc_domain_preboot(h2_xen_ctx* ctx, h2_guest* guest)
 
     ret = xc_dom_boot_xen_init(img, ctx->xc.xci, guest->id);
     if (ret) {
-        goto out_console_evtchn;
+        goto out_dom;
     }
 
 #if defined(__arm__) || defined(__aarch64__)
@@ -361,12 +352,12 @@ static int h2_xen_xc_domain_preboot(h2_xen_ctx* ctx, h2_guest* guest)
 
     ret = xc_dom_mem_init(img, guest->memory / 1024);
     if (ret) {
-        goto out_console_evtchn;
+        goto out_dom;
     }
 
     ret = xc_dom_boot_mem_init(img);
     if (ret) {
-        goto out_console_evtchn;
+        goto out_dom;
     }
 
     xguest->priv.xlib = h2_xen_xlib_t_xc;
@@ -374,11 +365,6 @@ static int h2_xen_xc_domain_preboot(h2_xen_ctx* ctx, h2_guest* guest)
     xguest->priv.xlibd.xc.img = img;
 
     return 0;
-
-    /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
-out_console_evtchn:
-
-out_xs_evtchn:
 
 out_dom:
     xc_dom_release(img);
