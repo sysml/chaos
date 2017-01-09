@@ -580,7 +580,7 @@ int h2_xen_xs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
     be_perms[1].perms = XS_PERM_READ;
 
     asprintf(&dev_id_str, "%d", vif->id);
-    asprintf(&mac_str, "%2"SCNx8":%2"SCNx8":%2"SCNx8":%2"SCNx8":%2"SCNx8":%2"SCNx8,
+    asprintf(&mac_str, "%02"SCNx8":%02"SCNx8":%02"SCNx8":%02"SCNx8":%02"SCNx8":%02"SCNx8,
             vif->mac[0], vif->mac[1], vif->mac[2], vif->mac[3], vif->mac[4], vif->mac[5]);
 
     fe_dom_path = guest->hyp.guest.xen->priv.xs.dom_path;
