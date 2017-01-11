@@ -191,19 +191,28 @@ out:
 
 static int __from_h2_xen(config* conf, h2_guest* guest)
 {
-    h2_xen_dev *dev;
+    h2_xen_dev* dev;
 
     conf->name = guest->name;
+    conf->name_set = true;
 
     conf->kernel = guest->kernel.buff.path;
+    conf->kernel_set = true;
+
     conf->cmdline = guest->cmdline;
+    conf->cmdline_set = true;
 
     conf->memory = guest->memory / 1024;
+    conf->memory_set = true;
+
     conf->vcpus.count = guest->vcpus.count;
+    conf->vcpus_set = true;
 
     conf->paused = guest->paused;
+    conf->paused_set = true;
 
     conf->xen.pvh = guest->hyp.guest.xen->pvh;
+    conf->xen.pvh_set = true;
 
     if (guest->hyp.guest.xen->xs.active)
     	conf->xen.dev_meth = h2_xen_dev_meth_t_xs;
@@ -237,14 +246,19 @@ static int __parse_ip(struct in_addr* ip, const char* ip_str)
     return 0;
 }
 
-static int __dump_ip(const struct in_addr* ip, char** ip_str)
+static int __dump_ip(const struct in_addr* ip, char* ip_str)
 {
-    *ip_str = inet_ntoa(*ip);
-    if (*ip_str == NULL) {
-        return EINVAL;
+    int ret;
+    const char* dst;
+
+    ret = 0;
+
+    dst = inet_ntop(AF_INET, ip, ip_str, INET_ADDRSTRLEN);
+    if (dst == NULL) {
+        ret = errno;
     }
 
-    return 0;
+    return ret;
 }
 
 static int __parse_mac(uint8_t mac[6], const char* mac_str)
@@ -378,7 +392,7 @@ static int __dump_vif(json_t** vif, config* conf, int vid)
 {
     int ret;
 
-    char* ip_str = NULL;
+    char ip_str[INET_ADDRSTRLEN];
     char mac_str[18];
 
     *vif = json_object();
@@ -387,7 +401,7 @@ static int __dump_vif(json_t** vif, config* conf, int vid)
         goto out;
     }
 
-    __dump_ip(&(conf->vifs[vid].ip), &ip_str);
+    __dump_ip(&(conf->vifs[vid].ip), ip_str);
     json_object_set_new(*vif, "ip", json_string(ip_str));
 
     __dump_mac(conf->vifs[vid].mac, mac_str);
