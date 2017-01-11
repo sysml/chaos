@@ -43,6 +43,8 @@
 #include <errno.h>
 #include <stdio.h>
 #include <xc_dom.h>
+#include <xencall.h>
+
 
 
 static int __evtchn_alloc_unbound(h2_xen_ctx* ctx, domid_t lid, domid_t rid, evtchn_port_t* evtchn)
@@ -59,6 +61,25 @@ static int __evtchn_alloc_unbound(h2_xen_ctx* ctx, domid_t lid, domid_t rid, evt
     } else {
         (*evtchn) = ec_ret;
     }
+
+    return ret;
+}
+
+static int __evtchn_close(h2_xen_ctx* ctx, evtchn_port_t evtchn)
+{
+    int ret;
+    evtchn_close_t close_cmd;
+
+    xencall_handle* ch;
+
+    /* FIXME: keep xencall open */
+    ch = xencall_open(ctx->xc.xtl, XENCALL_OPENFLAG_NON_REENTRANT);
+
+    close_cmd.port = evtchn;
+
+    ret = xencall2(ch, __HYPERVISOR_event_channel_op, EVTCHNOP_close, (uint64_t)(&close_cmd));
+
+    xencall_close(ch);
 
     return ret;
 }
@@ -267,8 +288,6 @@ static int __pre_build(h2_xen_ctx* ctx, h2_guest* guest)
     int ret;
     h2_xen_guest* xguest;
 
-    ret = 0;
-
     xguest = guest->hyp.guest.xen;
 
     if (xguest->priv.xs.active) {
@@ -291,11 +310,31 @@ static int __pre_build(h2_xen_ctx* ctx, h2_guest* guest)
         xguest->priv.console.evtchn = 0;
     }
 
+    return 0;
+
 out_xs_evtchn:
-    /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
+    __evtchn_close(ctx, xguest->priv.xs.evtchn);
+    xguest->priv.xs.evtchn = 0;
 
 out_err:
     return ret;
+}
+
+static void __close_priv_evtchns(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    h2_xen_guest* xguest;
+
+    xguest = guest->hyp.guest.xen;
+
+    if (xguest->priv.xs.active) {
+        __evtchn_close(ctx, xguest->priv.xs.evtchn);
+        xguest->priv.xs.evtchn = 0;
+    }
+
+    if (xguest->console.active) {
+        __evtchn_close(ctx, xguest->priv.console.evtchn);
+        xguest->priv.console.evtchn = 0;
+    }
 }
 
 static int h2_xen_xc_domain_preboot(h2_xen_ctx* ctx, h2_guest* guest)
@@ -386,7 +425,7 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
     if (!guest->restore) {
     	ret = h2_xen_xc_domain_preboot(ctx, guest);
         if (ret) {
-            /* TODO free evtchns */
+            __close_priv_evtchns(ctx, guest);
             goto out_err;
         }
     }
