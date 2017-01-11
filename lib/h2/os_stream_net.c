@@ -2,53 +2,71 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <errno.h>
 #include <unistd.h>
+#include <errno.h>
 
 
 static int server_connection_open(stream_net_cfg* cfg)
 {
     int ret;
+    int listen_fd;
     struct sockaddr_in addr;
 
-    cfg->endp.server.listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    listen_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (listen_fd < 0) {
+        ret = errno;
+        goto out_ret;
+    }
 
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);
     addr.sin_port = htons(cfg->endp.server.listen_endp.port);
 
-    ret = bind(cfg->endp.server.listen_fd, (struct sockaddr*) &addr, sizeof(addr));
+    ret = bind(listen_fd, (struct sockaddr*) &addr, sizeof(addr));
     if (ret) {
-        goto out_err;
+        ret = errno;
+        goto out_close;
     }
 
-    ret = listen(cfg->endp.server.listen_fd, 10);
+    ret = listen(listen_fd, 10);
     if (ret) {
-        goto out_err;
+        ret = errno;
+        goto out_close;
     }
+
+    cfg->endp.server.listen_fd = listen_fd;
 
     return 0;
 
-out_err:
-    close(cfg->endp.server.listen_fd);
+out_close:
+    close(listen_fd);
+
+out_ret:
+    return ret;
+}
+
+static int server_connection_wait(int listen_fd, int* conn_fd)
+{
+    int ret;
+
+    ret = 0;
+
+    *conn_fd = accept(listen_fd, (struct sockaddr*) NULL, NULL);
+    if (*conn_fd < 0) {
+        ret = errno;
+    }
 
     return ret;
 }
 
-static int server_connection_wait(int listen_fd)
-{
-    return accept(listen_fd, (struct sockaddr*) NULL, NULL);
-}
-
-static int client_stream_open(tcp_endpoint* server)
+static int client_stream_open(tcp_endpoint* server, int* fd)
 {
     int ret;
-    int fd;
     struct sockaddr_in serv_addr;
 
-    fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) {
+    *fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (*fd < 0) {
         goto out_err;
     }
 
@@ -57,43 +75,132 @@ static int client_stream_open(tcp_endpoint* server)
     serv_addr.sin_port = htons(server->port);
     serv_addr.sin_addr.s_addr = server->ip.s_addr;
 
-    ret = connect(fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr));
+    ret = connect(*fd, (struct sockaddr*) &serv_addr, sizeof(serv_addr));
     if (ret) {
-        goto out_err;
+        ret = errno;
+        goto out_close;
     }
 
-    return fd;
+    return 0;
+
+out_close:
+    close(*fd);
+    *fd = -1;
 
 out_err:
-    close(fd);
-
-    return -1;
+    return ret;
 }
 
 int stream_net_init(stream_net_cfg* cfg)
 {
-    int ret = 0;
+    int ret;
 
-    if (cfg->mode == stream_net_server)
-        ret = server_connection_open(cfg);
+    if (cfg == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
 
-    else if (cfg->mode != stream_net_client)
-        ret = -1;
+    ret = 0;
+
+    switch (cfg->mode) {
+        case stream_net_server:
+            ret = server_connection_open(cfg);
+            break;
+        case stream_net_client:
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+out_ret:
+    return ret;
+}
+
+int stream_net_open(stream_net_cfg* cfg, int* fd)
+{
+    int ret;
+
+    if (cfg == NULL || fd == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = 0;
+
+    switch (cfg->mode) {
+        case stream_net_server:
+            ret = server_connection_wait(cfg->endp.server.listen_fd, fd);
+            break;
+        case stream_net_client:
+            ret = client_stream_open(&cfg->endp.client.server_endp, fd);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+out_ret:
+    return ret;
+}
+
+int stream_net_close(int fd)
+{
+    int ret;
+
+    ret = close(fd);
+    if (ret) {
+        ret = errno;
+    }
 
     return ret;
 }
 
-int stream_net_open(stream_net_cfg* cfg)
+int stream_net_read(int fd, void* buffer, size_t size, int* out_read)
 {
-    int fd;
+    int ret;
+    int bytes;
 
-    if (cfg->mode == stream_net_server) {
-        fd = server_connection_wait(cfg->endp.server.listen_fd);
+    if (fd < 0 || buffer == NULL || out_read == NULL) {
+        ret = EINVAL;
+        goto out_ret;
     }
 
-    else if (cfg->mode == stream_net_client) {
-        fd = client_stream_open(&cfg->endp.client.server_endp);
+    bytes = read(fd, buffer, size);
+    if (bytes < 0) {
+        ret = errno;
+    } else {
+        *out_read = bytes;
+        ret = 0;
     }
 
-    return fd;
+out_ret:
+    return ret;
+}
+
+int stream_net_write(int fd, void* buffer, size_t size, int* out_written)
+{
+    int ret;
+    int bytes;
+
+    if (fd < 0 || buffer == NULL || out_written == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    bytes = write(fd, buffer, size);
+    if (bytes < 0) {
+        ret = errno;
+    } else {
+        *out_written = bytes;
+        ret = 0;
+    }
+
+out_ret:
+    return ret;
+}
+
+int stream_net_size(int fd, size_t* size)
+{
+    return 0;
 }

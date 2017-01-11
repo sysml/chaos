@@ -38,6 +38,12 @@ struct stream_net_cfg {
 typedef struct stream_net_cfg stream_net_cfg;
 
 int stream_net_init(stream_net_cfg* cfg);
-int stream_net_open(stream_net_cfg* cfg);
+int stream_net_open(stream_net_cfg* cfg, int* fd);
+int stream_net_close(int fd);
+
+int stream_net_read(int fd, void* buffer, size_t size, int* out_read);
+int stream_net_write(int fd, void* buffer, size_t size, int* out_written);
+
+int stream_net_size(int fd, size_t* size);
 
 #endif /* __H2__OS_STREAM_NET__H__ */

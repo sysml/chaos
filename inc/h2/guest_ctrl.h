@@ -17,7 +17,7 @@ struct h2_guest_ctrl_create {
 };
 typedef struct h2_guest_ctrl_create h2_guest_ctrl_create;
 
-int  h2_guest_ctrl_create_init(h2_guest_ctrl_create* gc, stream_cfg* cfg, bool restore);
+int  h2_guest_ctrl_create_init(h2_guest_ctrl_create* gc, bool restore);
 void h2_guest_ctrl_create_destroy(h2_guest_ctrl_create* gc);
 
 
@@ -31,7 +31,7 @@ struct h2_guest_ctrl_save {
 };
 typedef struct h2_guest_ctrl_save h2_guest_ctrl_save;
 
-int  h2_guest_ctrl_save_init(h2_guest_ctrl_save* gs, stream_cfg* strm_cfg);
+int  h2_guest_ctrl_save_init(h2_guest_ctrl_save* gs);
 void h2_guest_ctrl_save_destroy(h2_guest_ctrl_save* gs);
 
 #endif /* __H2__GUEST_CTRL__H__ */

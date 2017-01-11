@@ -557,7 +557,7 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
     save_cbs.suspend = h2_xen_save_cb_suspend;
     save_cbs.data = &srs;
 
-    if (guest->sd->cfg->type == stream_type_net)
+    if (guest->sd->type == stream_type_net)
         flags |= XCFLAGS_LIVE;
 
     ret = xc_domain_save(ctx->xc.xci, guest->sd->fd, guest->id,

@@ -82,40 +82,62 @@ out_ret:
 
 static int create_read_config(struct h2_guest_ctrl_create* gc)
 {
+    int ret;
     size_t cfg_size;
 
-    cfg_size = stream_size(&gc->sd);
+    ret = stream_size(&gc->sd, &cfg_size);
+    if (ret) {
+        goto out_ret;
+    }
 
-    h2_serialized_cfg_alloc(&gc->serialized_cfg, cfg_size);
+    ret = h2_serialized_cfg_alloc(&gc->serialized_cfg, cfg_size);
+    if (ret) {
+        goto out_ret;
+    }
 
-    config_read(&gc->serialized_cfg, &gc->sd);
+    ret = config_read(&gc->serialized_cfg, &gc->sd);
 
-    return 0;
+out_ret:
+    return ret;
 }
 
 static int save_config(h2_guest_ctrl_save* gs)
 {
-    config_write(&gs->serialized_cfg, &gs->sd);
-    stream_align(&gs->sd, 64);
-    return 0;
+    int ret;
+
+    ret = config_write(&gs->serialized_cfg, &gs->sd);
+    if (ret) {
+        goto out_ret;
+    }
+
+    ret = stream_align(&gs->sd, 64);
+
+out_ret:
+    return ret;
 }
 
 static int restore_config(h2_guest_ctrl_create* gc)
 {
-    config_read(&gc->serialized_cfg, &gc->sd);
-    stream_align(&gc->sd, 64);
-    return 0;
+    int ret;
+
+    ret = config_read(&gc->serialized_cfg, &gc->sd);
+    if (ret) {
+        goto out_ret;
+    }
+
+    ret = stream_align(&gc->sd, 64);
+
+out_ret:
+    return ret;
 }
 
-int h2_guest_ctrl_create_init(h2_guest_ctrl_create* gc, stream_cfg* cfg, bool restore)
+int h2_guest_ctrl_create_init(h2_guest_ctrl_create* gc, bool restore)
 {
     int ret;
 
-    if (!stream_is_initialized(&gc->sd)) {
-        ret = stream_init(&gc->sd, cfg);
-        if (ret) {
-            goto out_ret;
-        }
+    ret = stream_init(&gc->sd);
+    if (ret) {
+        goto out_ret;
     }
 
     ret = stream_open(&gc->sd);
@@ -145,15 +167,13 @@ void h2_guest_ctrl_create_destroy(h2_guest_ctrl_create* gc)
     stream_close(&gc->sd);
 }
 
-int h2_guest_ctrl_save_init(h2_guest_ctrl_save* gs, stream_cfg* strm_cfg)
+int h2_guest_ctrl_save_init(h2_guest_ctrl_save* gs)
 {
     int ret;
 
-    if (!stream_is_initialized(&gs->sd)) {
-        ret = stream_init(&gs->sd, strm_cfg);
-        if (ret) {
-            goto out_ret;
-        }
+    ret = stream_init(&gs->sd);
+    if (ret) {
+        goto out_ret;
     }
 
     ret = stream_open(&gs->sd);

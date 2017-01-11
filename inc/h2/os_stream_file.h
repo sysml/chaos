@@ -19,10 +19,13 @@ typedef struct stream_file_cfg stream_file_cfg;
 
 
 int stream_file_init(stream_file_cfg* cfg);
-int stream_file_open(stream_file_cfg* cfg);
+int stream_file_open(stream_file_cfg* cfg, int* fd);
 int stream_file_close(int fd);
 
-size_t stream_file_move(int fd, int bytes);
-size_t stream_file_size(int fd);
+int stream_file_read(int fd, void* buffer, size_t size, int* out_read);
+int stream_file_write(int fd, void* buffer, size_t size, int* out_written);
+
+int stream_file_move(int fd, int bytes);
+int stream_file_size(int fd, size_t* size);
 
 #endif /* __H2__OS_STREAM_FILE__H__ */

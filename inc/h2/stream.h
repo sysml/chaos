@@ -14,20 +14,13 @@ enum stream_type {
 };
 typedef enum stream_type stream_type;
 
-
-struct stream_cfg {
+struct stream_desc {
     stream_type type;
 
     union {
         stream_file_cfg file;
         stream_net_cfg net;
     };
-};
-typedef struct stream_cfg stream_cfg;
-
-
-struct stream_desc {
-    stream_cfg* cfg;
 
     int fd;
     size_t bytes;
@@ -35,16 +28,15 @@ struct stream_desc {
 typedef struct stream_desc stream_desc;
 
 
-int  stream_init(stream_desc* sd, stream_cfg* cfg);
-bool stream_is_initialized(stream_desc* sd);
-int  stream_open(stream_desc *sd);
-void stream_close(stream_desc *sd);
+int stream_init(stream_desc* sd);
+int stream_open(stream_desc* sd);
+int stream_close(stream_desc* sd);
 
-int  stream_read(stream_desc *sd, void *buffer, size_t size);
-int  stream_write(stream_desc *sd, void *buffer, size_t size);
+int stream_read(stream_desc* sd, void* buffer, size_t size);
+int stream_write(stream_desc* sd, void* buffer, size_t size);
 
-int  stream_align(stream_desc *sd, size_t align);
+int stream_align(stream_desc* sd, size_t align);
 
-size_t stream_size(stream_desc *sd);
+int stream_size(stream_desc* sd, size_t* size);
 
 #endif /* __H2__STREAM__H__ */

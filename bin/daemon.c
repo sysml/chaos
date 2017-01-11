@@ -11,7 +11,7 @@ int main(int argc, char** argv)
     h2_ctx* ctx;
     h2_guest* guest;
     h2_hyp_cfg hyp_cfg;
-    stream_cfg strm_cfg;
+    stream_desc* sd;
 
 
     cmdline_parse(argc, argv, &cmd);
@@ -29,10 +29,6 @@ int main(int argc, char** argv)
 #endif
     hyp_cfg.xen.xlib = h2_xen_xlib_t_xc;
 
-    strm_cfg.type = stream_type_net;
-    strm_cfg.net.mode = stream_net_server;
-    strm_cfg.net.endp.server.listen_endp.port = cmd.port;
-
 
     while (1) {
         ret = h2_open(&ctx, h2_hyp_t_xen, &hyp_cfg);
@@ -40,7 +36,12 @@ int main(int argc, char** argv)
             goto out_h2;
         }
 
-        ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, &strm_cfg, true);
+        sd = &ctx->ctrl.create.sd;
+        sd->type = stream_type_net;
+        sd->net.mode = stream_net_server;
+        sd->net.endp.server.listen_endp.port = cmd.port;
+
+        ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, true);
         if (ret) {
             goto out_h2;
         }
