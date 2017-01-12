@@ -150,9 +150,11 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
     dev = &(*guest)->hyp.guest.xen->devs[0];
 
 #ifdef CONFIG_H2_XEN_NOXS
-    dev->type = h2_xen_dev_t_sysctl;
-    dev->dev.sysctl.backend_id = 0;
-    dev++;
+    if ((*guest)->hyp.guest.xen->noxs.active) {
+        dev->type = h2_xen_dev_t_sysctl;
+        dev->dev.sysctl.backend_id = 0;
+        dev++;
+    }
 #endif
 
     /* TODO: Add console to domain when using NoXS
