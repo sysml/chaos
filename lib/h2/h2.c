@@ -153,9 +153,6 @@ int h2_guest_query(h2_ctx* ctx, h2_guest_id id, h2_guest** guest)
 
     (*guest)->id = id;
 
-    if (ctx->ctrl_type == h2_guest_ctrl_t_save)
-        (*guest)->save = true;
-
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:
             ret = h2_xen_guest_query(ctx->hyp.ctx.xen, *guest);
@@ -252,8 +249,7 @@ int h2_guest_create(h2_ctx* ctx, h2_guest** guest)
     }
 
     if (gc->restore) {
-        (*guest)->restore = true;
-        (*guest)->sd = &gc->sd;
+        (*guest)->snapshot.sd = &gc->sd;
     }
 
     switch (ctx->hyp.type) {
@@ -301,7 +297,7 @@ int h2_guest_save(h2_ctx* ctx, h2_guest* guest)
         goto out_ret;
     }
 
-    guest->sd = &gs->sd;
+    guest->snapshot.sd = &gs->sd;
 
     switch (ctx->hyp.type) {
         case h2_hyp_t_xen:

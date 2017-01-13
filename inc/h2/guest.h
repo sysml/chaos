@@ -39,12 +39,13 @@
 #define __H2__GUEST__H__
 
 #include <h2/hyp.h>
-#include <h2/stream.h>//TODO temporary?
+#include <h2/stream.h>
 
 
 typedef uint64_t h2_guest_id;
 
 enum h2_kernel_buff_t {
+    h2_kernel_buff_t_none ,
     h2_kernel_buff_t_mem  ,
     h2_kernel_buff_t_file ,
 };
@@ -91,9 +92,9 @@ struct h2_guest {
         } buff;
     } kernel;
 
-    bool save;//TODO temporary?
-    bool restore;//TODO temporary?
-    stream_desc* sd;//TODO temporary?
+    struct {
+        stream_desc* sd;
+    } snapshot;
 
     bool paused;
 

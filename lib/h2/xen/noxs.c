@@ -121,6 +121,31 @@ static int __dev_remove(h2_xen_ctx* ctx, h2_guest* guest, noxs_dev_type_t type,
     return ret;
 }
 
+/* TODO Make more generic for future device types */
+static int __dev_query_vif_config(h2_xen_ctx* ctx, h2_guest* guest,
+        noxs_dev_id_t dev_id, h2_xen_dev_vif* vif)
+{
+    int ret;
+    struct noxs_ioctl_dev_query_cfg ioctlq;
+
+    ioctlq.type = noxs_user_dev_vif;
+    ioctlq.be_id = 0;
+    ioctlq.fe_id = guest->id;
+    ioctlq.devid = dev_id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_QUERY_CFG, &ioctlq);
+    if (ret) {
+        goto out_ret;
+    }
+
+    memcpy(vif->mac, ioctlq.cfg.vif.mac, 6);
+    vif->ip.s_addr = ioctlq.cfg.vif.ip;
+    vif->bridge = strdup(ioctlq.cfg.vif.bridge);
+
+out_ret:
+    return ret;
+}
+
 static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -169,24 +194,10 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
                 devs[j].dev.vif.meth = h2_xen_dev_meth_t_noxs;
                 devs[j].dev.vif.valid = true;
 
-                if (guest->save) {
-                    struct noxs_ioctl_dev_query_cfg ioctlq;
-
-                    ioctlq.type = noxs_user_dev_vif;
-                    ioctlq.be_id = 0;
-                    ioctlq.fe_id = guest->id;
-                    ioctlq.devid = dev->id;
-
-                    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_QUERY_CFG, &ioctlq);
-                    if (ret) {
-                        goto out_ret;
-                    }
-
-                    memcpy(devs[j].dev.vif.mac, ioctlq.cfg.vif.mac, 6);
-                    devs[j].dev.vif.ip.s_addr = ioctlq.cfg.vif.ip;
-                    devs[j].dev.vif.bridge = strdup(ioctlq.cfg.vif.bridge);
+                ret = __dev_query_vif_config(ctx, guest, dev->id, &devs[j].dev.vif);
+                if (ret) {
+                    goto out_ret;
                 }
-
                 break;
 
             case noxs_dev_sysctl:

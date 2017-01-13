@@ -310,7 +310,7 @@ int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
 
     switch (ctx->xlib) {
         case h2_xen_xlib_t_xc:
-            if (guest->restore) {
+            if (guest->kernel.type == h2_kernel_buff_t_none) {
                 ret = h2_xen_xc_domain_restore(ctx, guest);
             } else {
                 ret = h2_xen_xc_domain_fastboot(ctx, guest);

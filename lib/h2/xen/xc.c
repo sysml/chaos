@@ -422,7 +422,7 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
-    if (!guest->restore) {
+    if (guest->kernel.type != h2_kernel_buff_t_none) {
     	ret = h2_xen_xc_domain_preboot(ctx, guest);
         if (ret) {
             __close_priv_evtchns(ctx, guest);
@@ -522,23 +522,30 @@ int h2_xen_xc_domain_restore(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
     h2_xen_guest* xguest;
+    stream_desc* restore_sd;
     unsigned long store_mfn, console_mfn;
 
     xguest = guest->hyp.guest.xen;
+    restore_sd = guest->snapshot.sd;
 
-    ret = xc_domain_restore(ctx->xc.xci, guest->sd->fd, guest->id,
+    if (xguest == NULL || restore_sd == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = xc_domain_restore(ctx->xc.xci, restore_sd->fd, guest->id,
             xguest->priv.xs.evtchn, &store_mfn, ctx->xs.domid,
             xguest->priv.console.evtchn, &console_mfn, xguest->console.be_id, 0,
             0, 0, XC_MIG_STREAM_NONE,
             NULL, 0);
     if (ret) {
-        goto out_err;
+        goto out_ret;
     }
 
     xguest->priv.xs.gmfn = store_mfn;
     xguest->priv.console.gmfn = console_mfn;
 
-out_err:
+out_ret:
     return ret;
 }
 
@@ -585,9 +592,17 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
+    stream_desc* save_sd;
     struct sr_session srs;
     struct save_callbacks save_cbs;
     uint32_t flags = XCFLAGS_DEBUG;//TODO
+
+    save_sd = guest->snapshot.sd;
+
+    if (save_sd == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
 
     srs.ctx = ctx;
     srs.guest = guest;
@@ -596,13 +611,14 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
     save_cbs.suspend = h2_xen_save_cb_suspend;
     save_cbs.data = &srs;
 
-    if (guest->sd->type == stream_type_net)
+    if (save_sd->type == stream_type_net)
         flags |= XCFLAGS_LIVE;
 
-    ret = xc_domain_save(ctx->xc.xci, guest->sd->fd, guest->id,
+    ret = xc_domain_save(ctx->xc.xci, save_sd->fd, guest->id,
                          0, 0, flags,
                          &save_cbs, 0, XC_MIG_STREAM_NONE,
                          0);
 
+out_ret:
     return ret;
 }
