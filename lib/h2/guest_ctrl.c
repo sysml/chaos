@@ -3,21 +3,23 @@
 #include <h2/config.h>
 
 
-#define CHAOS_IMG_MAGIC 0xDEADBEEF
+#define CHAOS_IMG_MAGIC     0xCA05
+#define CHAOS_IMG_VERSION   0x0001
 
 struct save_file_header {
-    uint32_t magic;
-    uint32_t flags;
-    uint32_t optional_data_len;
+    uint16_t magic;
+    uint16_t version;
+    uint16_t flags;
+    uint16_t optional_data_len;
 };
 
 static int save_header(h2_guest_ctrl_save* gs)
 {
     int ret;
-
     struct save_file_header hdr;
 
     hdr.magic = CHAOS_IMG_MAGIC;
+    hdr.version = CHAOS_IMG_VERSION;
     hdr.flags = 0;
     hdr.optional_data_len = gs->serialized_cfg.size;
 
@@ -35,7 +37,6 @@ out_ret:
 static int restore_header(h2_guest_ctrl_create* gc)
 {
     int ret;
-
     struct save_file_header hdr;
 
     ret = stream_read(&gc->sd, &hdr, sizeof(hdr));
@@ -43,7 +44,8 @@ static int restore_header(h2_guest_ctrl_create* gc)
         goto out_ret;
     }
 
-    if (hdr.magic != CHAOS_IMG_MAGIC) {
+    if (hdr.magic != CHAOS_IMG_MAGIC || hdr.version != CHAOS_IMG_VERSION) {
+        ret = EINVAL;
         goto out_ret;
     }
 
