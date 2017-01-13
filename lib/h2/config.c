@@ -898,12 +898,39 @@ out:
     return ret;
 }
 
-int config_read(h2_serialized_cfg* cfg, stream_desc* sd)
+int h2_serialized_cfg_alloc(h2_serialized_cfg* cfg, size_t size)
+{
+    int ret;
+
+    cfg->data = malloc(size * sizeof(char));
+    if (cfg->data == NULL) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    cfg->size = size;
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
+void h2_serialized_cfg_free(h2_serialized_cfg* cfg)
+{
+    if (cfg->data) {
+        free(cfg->data);
+        cfg->data = NULL;
+    }
+    cfg->size = 0;
+}
+
+int h2_serialized_cfg_read(h2_serialized_cfg* cfg, stream_desc* sd)
 {
     return stream_read(sd, cfg->data, cfg->size);
 }
 
-int config_write(h2_serialized_cfg* cfg, stream_desc* sd)
+int h2_serialized_cfg_write(h2_serialized_cfg* cfg, stream_desc* sd)
 {
     return stream_write(sd, cfg->data, cfg->size);
 }

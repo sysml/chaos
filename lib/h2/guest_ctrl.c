@@ -11,33 +11,6 @@ struct save_file_header {
     uint32_t optional_data_len;
 };
 
-int h2_serialized_cfg_alloc(h2_serialized_cfg* cfg, size_t size)
-{
-    int ret;
-
-    cfg->data = malloc(size * sizeof(char));
-    if (cfg->data == NULL) {
-        ret = -ENOMEM;
-        goto out;
-    }
-
-    cfg->size = size;
-
-    ret = 0;
-
-out:
-    return ret;
-}
-
-void h2_serialized_cfg_free(h2_serialized_cfg* cfg)
-{
-    if (cfg->data) {
-        free(cfg->data);
-        cfg->data = NULL;
-    }
-    cfg->size = 0;
-}
-
 static int save_header(h2_guest_ctrl_save* gs)
 {
     int ret;
@@ -95,7 +68,7 @@ static int create_read_config(struct h2_guest_ctrl_create* gc)
         goto out_ret;
     }
 
-    ret = config_read(&gc->serialized_cfg, &gc->sd);
+    ret = h2_serialized_cfg_read(&gc->serialized_cfg, &gc->sd);
 
 out_ret:
     return ret;
@@ -105,7 +78,7 @@ static int save_config(h2_guest_ctrl_save* gs)
 {
     int ret;
 
-    ret = config_write(&gs->serialized_cfg, &gs->sd);
+    ret = h2_serialized_cfg_write(&gs->serialized_cfg, &gs->sd);
     if (ret) {
         goto out_ret;
     }
@@ -120,7 +93,7 @@ static int restore_config(h2_guest_ctrl_create* gc)
 {
     int ret;
 
-    ret = config_read(&gc->serialized_cfg, &gc->sd);
+    ret = h2_serialized_cfg_read(&gc->serialized_cfg, &gc->sd);
     if (ret) {
         goto out_ret;
     }
