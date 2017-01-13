@@ -97,6 +97,7 @@ struct h2_guest {
     } snapshot;
 
     bool paused;
+    bool shutdown;
 
     h2_hyp_guest hyp;
 };

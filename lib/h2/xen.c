@@ -45,6 +45,9 @@
 #include <h2/xen/xs.h>
 
 #include <xc_dom.h>
+#include <xenguest.h>
+#include <xenevtchn.h>
+#include <poll.h>
 
 
 int h2_xen_open(h2_xen_ctx** ctx, h2_xen_cfg* cfg)
@@ -477,23 +480,81 @@ int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
     return h2_xen_xc_domain_save(ctx, guest);
 }
 
+/* TODO xs
+ * ret = h2_xen_xs_domain_suspend(srs->ctx, srs->guest);
+ */
 int h2_xen_save_cb_suspend(void* user)
 {
     int ret;
     struct sr_session* srs;
+    struct xenevtchn_handle *xce;
+    struct pollfd pollfd;
+    int virq_evtchn;
+    int timeout_ms, dec_ms;
 
     ret = 0;
 
     srs = (struct sr_session*) user;
 
-#ifdef CONFIG_H2_XEN_NOXS
-    ret = h2_xen_noxs_domain_suspend(srs->ctx, srs->guest);
-    fprintf(stderr, "dummy suspend %d\n", ret);/* TODO remove */
-    sleep(3);
-#else
-    ret = h2_xen_xs_domain_suspend(srs->ctx, srs->guest);
-#endif
+    xce = xenevtchn_open(NULL, 0);
+    if (xce == NULL) {
+        ret = errno;
+        goto out_ret;
+    }
 
+    pollfd.fd = xenevtchn_fd(xce);
+    pollfd.events = POLLIN | POLLPRI;
+
+    ret = xenevtchn_bind_virq(xce, VIRQ_DOM_EXC);
+    if (ret < 0) {
+        ret = errno;
+        goto out_evtchn_close;
+    }
+    virq_evtchn = ret;
+
+    ret = h2_xen_noxs_domain_suspend(srs->ctx, srs->guest);
+    if (ret) {
+        ret = errno;
+        goto out_unbind;
+    }
+
+    timeout_ms = 60 * 1000;
+    dec_ms = 10;
+    while (timeout_ms > 0) {
+        h2_xen_xc_domain_info(srs->ctx, srs->guest);
+        if (srs->guest->shutdown) {
+            break;
+        }
+
+        ret = poll(&pollfd, 1, dec_ms);
+        if (ret < 0) {
+            ret = errno;
+            goto out_unbind;
+
+        } else if (ret > 0) {
+            /* We wait one event, for VIRQ_DOM_EXC */
+            if (ret != 1 || (pollfd.revents & POLLIN) == 0) {
+                ret = errno;
+                goto out_unbind;
+            }
+
+            ret = xenevtchn_pending(xce);
+            if (ret != virq_evtchn) {
+                ret = errno;
+                goto out_unbind;
+            }
+        }
+
+        timeout_ms -= dec_ms;
+    }
+
+out_unbind:
+    ret = xenevtchn_unbind(xce, virq_evtchn);
+
+out_evtchn_close:
+    ret = xenevtchn_close(xce);
+
+out_ret:
     return (ret == 0);
 }
 

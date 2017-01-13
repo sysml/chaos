@@ -569,6 +569,8 @@ int h2_xen_xc_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
     guest->memory = xcinfo.tot_pages * 4096 / 1024; /* TODO macros */
     guest->vcpus.count = xcinfo.nr_online_vcpus;
 
+    guest->shutdown = ((xcinfo.flags & XEN_DOMINF_shutdown) != 0);
+
 out_ret:
     return ret;
 }
