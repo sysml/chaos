@@ -19,6 +19,6 @@ endif
 
 $(eval $(call smk_library,h2,$(LIBH2_V_MAJOR),$(LIBH2_V_MINOR),$(LIBH2_V_BUGFIX),$(libh2_obj)))
 
-$(libh2_so): LDFLAGS += -lxenctrl -lxenstore -lxenguest -lxentoollog -lxenforeignmemory
+$(libh2_so): LDFLAGS += -ljansson -lxenctrl -lxenstore -lxenguest -lxentoollog -lxenforeignmemory
 $(libh2_so): LDFLAGS += $(XEN_LDFLAGS)
 $(libh2_obj): CFLAGS += $(XEN_CFLAGS)
