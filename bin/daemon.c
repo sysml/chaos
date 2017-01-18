@@ -11,7 +11,8 @@ int main(int argc, char** argv)
     h2_ctx* ctx;
     h2_guest* guest;
     h2_hyp_cfg hyp_cfg;
-    stream_desc* sd;
+
+    h2_guest_ctrl_create gcc;
 
 
     cmdline_parse(argc, argv, &cmd);
@@ -36,24 +37,28 @@ int main(int argc, char** argv)
             goto out_h2;
         }
 
-        sd = &ctx->ctrl.create.sd;
-        sd->type = stream_type_net;
-        sd->net.mode = stream_net_server;
-        sd->net.endp.server.listen_endp.port = cmd.port;
+        gcc.sd.type = stream_type_net;
+        gcc.sd.net.mode = stream_net_server;
+        gcc.sd.net.endp.server.listen_endp.port = cmd.port;
 
-        ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, true);
+        ret = h2_guest_ctrl_create_open(&gcc, true);
         if (ret) {
             goto out_h2;
         }
 
-        ret = h2_guest_create(ctx, &guest);
+        ret = h2_guest_deserialize(ctx, &gcc, &guest);
         if (ret) {
+            goto out_h2;
+        }
+
+        ret = h2_guest_create(ctx, guest);
+        if (ret) {//TODO remove
             goto out_ctx;
         }
 
         h2_guest_free(&guest);
 out_ctx:
-        h2_guest_ctrl_create_destroy(&ctx->ctrl.create);
+        h2_guest_ctrl_create_close(&gcc);
 out_h2:
         h2_close(&ctx);
     }

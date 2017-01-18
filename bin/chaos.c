@@ -47,7 +47,9 @@ int main(int argc, char** argv)
     h2_ctx* ctx;
     h2_guest* guest;
     h2_hyp_cfg hyp_cfg;
-    stream_desc* sd;
+
+    h2_guest_ctrl_create gcc;
+    h2_guest_ctrl_save gcs;
 
 
     cmdline_parse(argc, argv, &cmd);
@@ -75,19 +77,22 @@ int main(int argc, char** argv)
             break;
 
         case op_create:
-            sd = &ctx->ctrl.create.sd;
-            sd->type = stream_type_file;
-            sd->file.op = stream_file_op_read;
-            sd->file.filename = cmd.kernel;
+            gcc.sd.type = stream_type_file;
+            gcc.sd.file.op = stream_file_op_read;
+            gcc.sd.file.filename = cmd.kernel;
 
-            ctx->ctrl_type = h2_guest_ctrl_t_create;
-            ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, false);
+            ret = h2_guest_ctrl_create_open(&gcc, false);
             if (ret) {
                 goto out_h2;
             }
 
             for (int i = 0; i < cmd.nr_doms; i++) {
-                ret = h2_guest_create(ctx, &guest);
+                ret = h2_guest_deserialize(ctx, &gcc, &guest);
+                if (ret) {
+                    goto out_h2;
+                }
+
+                ret = h2_guest_create(ctx, guest);
                 if (ret) {
                     goto out_guest;
                 }
@@ -95,7 +100,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
-            h2_guest_ctrl_create_destroy(&ctx->ctrl.create);
+            h2_guest_ctrl_create_close(&gcc);
             break;
 
         case op_destroy:
@@ -127,18 +132,21 @@ int main(int argc, char** argv)
             break;
 
         case op_save:
-            sd = &ctx->ctrl.save.sd;
-            sd->type = stream_type_file;
-            sd->file.op = stream_file_op_write;
-            sd->file.filename = cmd.filename;
+            gcs.sd.type = stream_type_file;
+            gcs.sd.file.op = stream_file_op_write;
+            gcs.sd.file.filename = cmd.filename;
 
-            ctx->ctrl_type = h2_guest_ctrl_t_save;
-            ret = h2_guest_ctrl_save_init(&ctx->ctrl.save);
+            ret = h2_guest_ctrl_save_open(&gcs);
             if (ret) {
                 goto out_h2;
             }
 
             ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_serialize(ctx, &gcs, guest);
             if (ret) {
                 goto out_h2;
             }
@@ -149,42 +157,49 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
-            h2_guest_ctrl_save_destroy(&ctx->ctrl.save);
+            h2_guest_ctrl_save_close(&gcs);
             break;
 
         case op_restore:
-            sd = &ctx->ctrl.create.sd;
-            sd->type = stream_type_file;
-            sd->file.op = stream_file_op_read;
-            sd->file.filename = cmd.filename;
+            gcc.sd.type = stream_type_file;
+            gcc.sd.file.op = stream_file_op_read;
+            gcc.sd.file.filename = cmd.filename;
 
-            ctx->ctrl_type = h2_guest_ctrl_t_create;
-            ret = h2_guest_ctrl_create_init(&ctx->ctrl.create, true);
+            ret = h2_guest_ctrl_create_open(&gcc, true);
             if (ret) {
                 goto out_h2;
             }
 
-            ret = h2_guest_create(ctx, &guest);
+            ret = h2_guest_deserialize(ctx, &gcc, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_create(ctx, guest);
             if (ret) {
                 goto out_guest;
             }
 
             h2_guest_free(&guest);
-            h2_guest_ctrl_create_destroy(&ctx->ctrl.create);
+            h2_guest_ctrl_create_close(&gcc);
             break;
 
         case op_migrate:
-            sd = &ctx->ctrl.save.sd;
-            sd->type = stream_type_net;
-            sd->net.mode = stream_net_client;
-            sd->net.endp.client.server_endp = cmd.destination;
+            gcs.sd.type = stream_type_net;
+            gcs.sd.net.mode = stream_net_client;
+            gcs.sd.net.endp.client.server_endp = cmd.destination;
 
-            ret = h2_guest_ctrl_save_init(&ctx->ctrl.save);
+            ret = h2_guest_ctrl_save_open(&gcs);
             if (ret) {
                 goto out_h2;
             }
 
             ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_serialize(ctx, &gcs, guest);
             if (ret) {
                 goto out_h2;
             }
@@ -196,7 +211,7 @@ int main(int argc, char** argv)
 
             h2_guest_free(&guest);
 
-            h2_guest_ctrl_save_destroy(&ctx->ctrl.save);
+            h2_guest_ctrl_save_close(&gcs);
             break;
     }
 
