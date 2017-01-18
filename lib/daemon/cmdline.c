@@ -64,7 +64,9 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
 
 void cmdline_usage(char* argv0)
 {
-    printf("Usage: %s [option]... <command> [args...]\n", argv0);
+    printf("Usage: %s [option]... <port>\n", argv0);
+    printf("\n");
+    printf("  <port>                 Local port for migration receive.\n");
     printf("\n");
     printf("  -h, --help             Display this help and exit.\n");
     printf("\n");

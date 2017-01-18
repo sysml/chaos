@@ -323,6 +323,18 @@ void cmdline_usage(char* argv0)
     printf("        -n, --nr-doms    Number of domains to create.\n");
     printf("\n");
     printf("    destroy <guest_id>\n");
-    printf("        Create a new guest based on <config_file>.\n");
+    printf("        Terminate a running guest.\n");
+    printf("\n");
+    printf("    shutdown <guest_id>\n");
+    printf("        Shutdown a running guest.\n");
+    printf("\n");
+    printf("    save <guest_id> <img_file>\n");
+    printf("        Save a running guest state to <img_file>.\n");
+    printf("\n");
+    printf("    restore <img_file>\n");
+    printf("        Restore a guest from the state saved in <img_file>.\n");
+    printf("\n");
+    printf("    migrate <guest_id> <remote_ip> <remote_port>\n");
+    printf("        Migrate a running guest to a remote host.\n");
     printf("\n");
 }
