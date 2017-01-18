@@ -37,9 +37,22 @@
 #ifndef __CHAOS__CONFIG__H__
 #define __CHAOS__CONFIG__H__
 
-#include <h2/h2.h>
+#include <h2/guest.h>
 
 
-int config_parse(char* fpath, h2_hyp_t hyp, h2_guest** guest);
+struct h2_serialized_cfg {
+    char*  data;
+    size_t size;
+};
+typedef struct h2_serialized_cfg h2_serialized_cfg;
+
+
+int config_parse(h2_serialized_cfg* cfg, h2_hyp_t hyp, h2_guest** guest);
+int config_dump (h2_serialized_cfg* cfg, h2_hyp_t hyp, h2_guest*  guest);
+
+int  h2_serialized_cfg_alloc(h2_serialized_cfg* cfg, size_t size);
+void h2_serialized_cfg_free(h2_serialized_cfg* cfg);
+int  h2_serialized_cfg_read(h2_serialized_cfg* cfg, stream_desc* sd);
+int  h2_serialized_cfg_write(h2_serialized_cfg* cfg, stream_desc* sd);
 
 #endif /* __CHAOS__CONFIG__H__ */

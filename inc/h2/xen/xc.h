@@ -50,8 +50,12 @@ void h2_xen_xc_priv_free(h2_xen_guest* guest);
 
 int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_xc_domain_restore(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_xc_domain_info(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest);
 
 #endif /* __H2__XEN__XC__H__ */

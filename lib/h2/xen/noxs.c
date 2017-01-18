@@ -121,6 +121,31 @@ static int __dev_remove(h2_xen_ctx* ctx, h2_guest* guest, noxs_dev_type_t type,
     return ret;
 }
 
+/* TODO Make more generic for future device types */
+static int __dev_query_vif_config(h2_xen_ctx* ctx, h2_guest* guest,
+        noxs_dev_id_t dev_id, h2_xen_dev_vif* vif)
+{
+    int ret;
+    struct noxs_ioctl_dev_query_cfg ioctlq;
+
+    ioctlq.type = noxs_user_dev_vif;
+    ioctlq.be_id = 0;
+    ioctlq.fe_id = guest->id;
+    ioctlq.devid = dev_id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_QUERY_CFG, &ioctlq);
+    if (ret) {
+        goto out_ret;
+    }
+
+    memcpy(vif->mac, ioctlq.cfg.vif.mac, 6);
+    vif->ip.s_addr = ioctlq.cfg.vif.ip;
+    vif->bridge = strdup(ioctlq.cfg.vif.bridge);
+
+out_ret:
+    return ret;
+}
+
 static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -168,6 +193,16 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 
                 devs[j].dev.vif.meth = h2_xen_dev_meth_t_noxs;
                 devs[j].dev.vif.valid = true;
+
+                ret = __dev_query_vif_config(ctx, guest, dev->id, &devs[j].dev.vif);
+                if (ret) {
+                    goto out_ret;
+                }
+                break;
+
+            case noxs_dev_sysctl:
+                devs[j].type = h2_xen_dev_t_sysctl;
+                devs[j].dev.sysctl.backend_id = dev->be_id;
                 break;
 
             default:
@@ -175,6 +210,7 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
         }
     }
 
+out_ret:
     return ret;
 }
 
@@ -230,6 +266,28 @@ out_err:
     return ret;
 }
 
+static int __noxs_domain_pwrctl(h2_xen_ctx* ctx, h2_guest* guest, enum noxs_user_shutdown_type type)
+{
+    int ret;
+    struct noxs_ioctl_guest_close ioctlc;
+
+    ioctlc.type = type;
+    ioctlc.domid = guest->id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_GUEST_CLOSE, &ioctlc);
+
+    return ret;
+}
+
+int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_poweroff);
+}
+
+int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_suspend);
+}
 
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
 {
@@ -250,6 +308,85 @@ int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
     if (ret) {
         goto out_err;
     }
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
+
+int h2_xen_noxs_sysctl_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_sysctl* sysctl)
+{
+    int ret;
+    struct noxs_ioctl_dev_create ioctlc;
+    struct noxs_ioctl_dev_destroy ioctld;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (sysctl == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ioctlc.type = noxs_user_dev_sysctl;
+    ioctlc.be_id = sysctl->backend_id;
+    ioctlc.fe_id = guest->id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_CREATE, &ioctlc);
+    if (ret) {
+        goto out_err;
+    }
+
+    ret = __dev_append(ctx, guest, noxs_dev_sysctl,
+            ioctlc.devid, ioctlc.be_id, ioctlc.evtchn, ioctlc.grant);
+    if (ret) {
+        goto out_sysctl;
+    }
+
+    return 0;
+
+out_sysctl:
+    ioctld.type = ioctlc.type;
+    ioctld.be_id = ioctlc.be_id;
+    ioctld.fe_id = ioctlc.fe_id;
+    ioctld.devid = ioctlc.devid;
+
+    ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+
+out_err:
+    return ret;
+}
+
+int h2_xen_noxs_sysctl_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_sysctl* sysctl)
+{
+    int ret;
+    struct noxs_ioctl_dev_destroy ioctld;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (sysctl == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ioctld.type = noxs_user_dev_sysctl;
+    ioctld.be_id = sysctl->backend_id;
+    ioctld.fe_id = guest->id;
+    ioctld.devid = 0;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+    if (ret) {
+        goto out_err;
+    }
+
+    __dev_remove(ctx, guest, noxs_dev_sysctl, 0);
 
     return 0;
 

@@ -46,6 +46,10 @@ enum operation {
     op_none = 0 ,
     op_create   ,
     op_destroy  ,
+    op_shutdown ,
+    op_save     ,
+    op_restore  ,
+    op_migrate  ,
 };
 typedef enum operation operation;
 
@@ -65,6 +69,10 @@ struct cmdline {
     int nr_doms;
 
     char* kernel;
+
+    char* filename;
+
+    tcp_endpoint destination;
 };
 typedef struct cmdline cmdline;
 

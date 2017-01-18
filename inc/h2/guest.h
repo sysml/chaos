@@ -39,11 +39,13 @@
 #define __H2__GUEST__H__
 
 #include <h2/hyp.h>
+#include <h2/stream.h>
 
 
 typedef uint64_t h2_guest_id;
 
 enum h2_kernel_buff_t {
+    h2_kernel_buff_t_none ,
     h2_kernel_buff_t_mem  ,
     h2_kernel_buff_t_file ,
 };
@@ -70,7 +72,7 @@ struct h2_guest {
     char* name;
     char* cmdline;
 
-    uint memory;
+    uint memory; /* kilobytes */
 
     struct {
         int count;
@@ -90,7 +92,12 @@ struct h2_guest {
         } buff;
     } kernel;
 
+    struct {
+        stream_desc* sd;
+    } snapshot;
+
     bool paused;
+    bool shutdown;
 
     h2_hyp_guest hyp;
 };

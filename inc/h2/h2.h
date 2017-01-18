@@ -40,6 +40,7 @@
 
 #include <h2/hyp.h>
 #include <h2/guest.h>
+#include <h2/guest_ctrl.h>
 
 
 struct h2_ctx {
@@ -58,5 +59,11 @@ void h2_guest_free(h2_guest** guest);
 
 int h2_guest_create(h2_ctx* ctx, h2_guest* guest);
 int h2_guest_destroy(h2_ctx* ctx, h2_guest* guest);
+int h2_guest_shutdown(h2_ctx* ctx, h2_guest* guest);
+
+int h2_guest_save(h2_ctx* ctx, h2_guest* guest);
+
+int h2_guest_serialize(h2_ctx* ctx, h2_guest_ctrl_save* gs, h2_guest* guest);
+int h2_guest_deserialize(h2_ctx* ctx, h2_guest_ctrl_create* gc, h2_guest** guest);
 
 #endif /* __H2__H2__H__ */

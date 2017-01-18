@@ -34,8 +34,8 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
-#include <chaos/config.h>
 #include <chaos/cmdline.h>
+#include <h2/config.h>
 
 
 int main(int argc, char** argv)
@@ -47,6 +47,9 @@ int main(int argc, char** argv)
     h2_ctx* ctx;
     h2_guest* guest;
     h2_hyp_cfg hyp_cfg;
+
+    h2_guest_ctrl_create gcc;
+    h2_guest_ctrl_save gcs;
 
 
     cmdline_parse(argc, argv, &cmd);
@@ -74,12 +77,21 @@ int main(int argc, char** argv)
             break;
 
         case op_create:
-            ret = config_parse(cmd.kernel, h2_hyp_t_xen, &guest);
+            gcc.sd.type = stream_type_file;
+            gcc.sd.file.op = stream_file_op_read;
+            gcc.sd.file.filename = cmd.kernel;
+
+            ret = h2_guest_ctrl_create_open(&gcc, false);
             if (ret) {
                 goto out_h2;
             }
 
             for (int i = 0; i < cmd.nr_doms; i++) {
+                ret = h2_guest_deserialize(ctx, &gcc, &guest);
+                if (ret) {
+                    goto out_h2;
+                }
+
                 ret = h2_guest_create(ctx, guest);
                 if (ret) {
                     goto out_guest;
@@ -88,6 +100,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
+            h2_guest_ctrl_create_close(&gcc);
             break;
 
         case op_destroy:
@@ -102,6 +115,103 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
+            break;
+
+        case op_shutdown:
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_shutdown(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+            break;
+
+        case op_save:
+            gcs.sd.type = stream_type_file;
+            gcs.sd.file.op = stream_file_op_write;
+            gcs.sd.file.filename = cmd.filename;
+
+            ret = h2_guest_ctrl_save_open(&gcs);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_serialize(ctx, &gcs, guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_save(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+            h2_guest_ctrl_save_close(&gcs);
+            break;
+
+        case op_restore:
+            gcc.sd.type = stream_type_file;
+            gcc.sd.file.op = stream_file_op_read;
+            gcc.sd.file.filename = cmd.filename;
+
+            ret = h2_guest_ctrl_create_open(&gcc, true);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_deserialize(ctx, &gcc, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_create(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+            h2_guest_ctrl_create_close(&gcc);
+            break;
+
+        case op_migrate:
+            gcs.sd.type = stream_type_net;
+            gcs.sd.net.mode = stream_net_client;
+            gcs.sd.net.endp.client.server_endp = cmd.destination;
+
+            ret = h2_guest_ctrl_save_open(&gcs);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_query(ctx, cmd.gid, &guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_serialize(ctx, &gcs, guest);
+            if (ret) {
+                goto out_h2;
+            }
+
+            ret = h2_guest_save(ctx, guest);
+            if (ret) {
+                goto out_guest;
+            }
+
+            h2_guest_free(&guest);
+
+            h2_guest_ctrl_save_close(&gcs);
             break;
     }
 

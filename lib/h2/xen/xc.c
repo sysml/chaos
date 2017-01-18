@@ -36,12 +36,15 @@
  */
 
 #include <h2/xen/xc.h>
+#include <h2/xen.h>
 
 #define _GNU_SOURCE
 
 #include <errno.h>
 #include <stdio.h>
 #include <xc_dom.h>
+#include <xencall.h>
+
 
 
 static int __evtchn_alloc_unbound(h2_xen_ctx* ctx, domid_t lid, domid_t rid, evtchn_port_t* evtchn)
@@ -58,6 +61,25 @@ static int __evtchn_alloc_unbound(h2_xen_ctx* ctx, domid_t lid, domid_t rid, evt
     } else {
         (*evtchn) = ec_ret;
     }
+
+    return ret;
+}
+
+static int __evtchn_close(h2_xen_ctx* ctx, evtchn_port_t evtchn)
+{
+    int ret;
+    evtchn_close_t close_cmd;
+
+    xencall_handle* ch;
+
+    /* FIXME: keep xencall open */
+    ch = xencall_open(ctx->xc.xtl, XENCALL_OPENFLAG_NON_REENTRANT);
+
+    close_cmd.port = evtchn;
+
+    ret = xencall2(ch, __HYPERVISOR_event_channel_op, EVTCHNOP_close, (uint64_t)(&close_cmd));
+
+    xencall_close(ch);
 
     return ret;
 }
@@ -261,7 +283,61 @@ static void __choose_guest_type(h2_guest* guest, struct xc_dom_image* dom)
     }
 }
 
-int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
+static int __pre_build(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+    h2_xen_guest* xguest;
+
+    xguest = guest->hyp.guest.xen;
+
+    if (xguest->priv.xs.active) {
+        ret = __evtchn_alloc_unbound(ctx,
+                guest->id, ctx->xs.domid, &(xguest->priv.xs.evtchn));
+        if (ret) {
+            goto out_err;
+        }
+    } else {
+        xguest->priv.xs.evtchn = 0;
+    }
+
+    if (xguest->console.active) {
+        ret = __evtchn_alloc_unbound(ctx,
+                guest->id, xguest->console.be_id, &(xguest->priv.console.evtchn));
+        if (ret) {
+            goto out_xs_evtchn;
+        }
+    } else {
+        xguest->priv.console.evtchn = 0;
+    }
+
+    return 0;
+
+out_xs_evtchn:
+    __evtchn_close(ctx, xguest->priv.xs.evtchn);
+    xguest->priv.xs.evtchn = 0;
+
+out_err:
+    return ret;
+}
+
+static void __close_priv_evtchns(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    h2_xen_guest* xguest;
+
+    xguest = guest->hyp.guest.xen;
+
+    if (xguest->priv.xs.active) {
+        __evtchn_close(ctx, xguest->priv.xs.evtchn);
+        xguest->priv.xs.evtchn = 0;
+    }
+
+    if (xguest->console.active) {
+        __evtchn_close(ctx, xguest->priv.console.evtchn);
+        xguest->priv.console.evtchn = 0;
+    }
+}
+
+static int h2_xen_xc_domain_preboot(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
     char* features;
@@ -286,23 +362,11 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     if (xguest->priv.xs.active) {
-        ret = __evtchn_alloc_unbound(ctx,
-                guest->id, ctx->xs.domid, &(xguest->priv.xs.evtchn));
-        if (ret) {
-            goto out_dom;
-        }
-
         img->xenstore_domid = ctx->xs.domid;
         img->xenstore_evtchn = xguest->priv.xs.evtchn;
     }
 
     if (xguest->console.active) {
-        ret = __evtchn_alloc_unbound(ctx,
-                guest->id, xguest->console.be_id, &(xguest->priv.console.evtchn));
-        if (ret) {
-            goto out_xs_evtchn;
-        }
-
         img->console_domid = xguest->console.be_id;
         img->console_evtchn = xguest->priv.console.evtchn;
     }
@@ -314,7 +378,7 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
 
     ret = xc_dom_boot_xen_init(img, ctx->xc.xci, guest->id);
     if (ret) {
-        goto out_console_evtchn;
+        goto out_dom;
     }
 
 #if defined(__arm__) || defined(__aarch64__)
@@ -328,12 +392,12 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
 
     ret = xc_dom_mem_init(img, guest->memory / 1024);
     if (ret) {
-        goto out_console_evtchn;
+        goto out_dom;
     }
 
     ret = xc_dom_boot_mem_init(img);
     if (ret) {
-        goto out_console_evtchn;
+        goto out_dom;
     }
 
     xguest->priv.xlib = h2_xen_xlib_t_xc;
@@ -342,13 +406,29 @@ int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
 
     return 0;
 
-    /* FIXME: How to close the unbound evtchn opened for xenstore and console? */
-out_console_evtchn:
-
-out_xs_evtchn:
-
 out_dom:
     xc_dom_release(img);
+
+out_err:
+    return ret;
+}
+
+int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    ret = __pre_build(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (guest->kernel.type != h2_kernel_buff_t_none) {
+    	ret = h2_xen_xc_domain_preboot(ctx, guest);
+        if (ret) {
+            __close_priv_evtchns(ctx, guest);
+            goto out_err;
+        }
+    }
 
 out_err:
     return ret;
@@ -438,6 +518,63 @@ out_err:
     return ret;
 }
 
+int h2_xen_xc_domain_restore(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+    h2_xen_guest* xguest;
+    stream_desc* restore_sd;
+    unsigned long store_mfn, console_mfn;
+
+    xguest = guest->hyp.guest.xen;
+    restore_sd = guest->snapshot.sd;
+
+    if (xguest == NULL || restore_sd == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = xc_domain_restore(ctx->xc.xci, restore_sd->fd, guest->id,
+            xguest->priv.xs.evtchn, &store_mfn, ctx->xs.domid,
+            xguest->priv.console.evtchn, &console_mfn, xguest->console.be_id, 0,
+            0, 0, XC_MIG_STREAM_NONE,
+            NULL, 0);
+    if (ret) {
+        goto out_ret;
+    }
+
+    xguest->priv.xs.gmfn = store_mfn;
+    xguest->priv.console.gmfn = console_mfn;
+
+out_ret:
+    return ret;
+}
+
+int h2_xen_xc_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    xc_domaininfo_t xcinfo;
+
+    ret = xc_domain_getinfolist(ctx->xc.xci, guest->id, 1, &xcinfo);
+    if (ret < 0) {
+        goto out_ret;
+    }
+    if (ret == 0 || xcinfo.domain != guest->id) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    guest->hyp.guest.xen->pvh = xcinfo.flags & XEN_DOMINF_pvh_guest;
+
+    guest->memory = xcinfo.tot_pages * 4096 / 1024; /* TODO macros */
+    guest->vcpus.count = xcinfo.nr_online_vcpus;
+
+    guest->shutdown = ((xcinfo.flags & XEN_DOMINF_shutdown) != 0);
+
+out_ret:
+    return ret;
+}
+
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return xc_domain_destroy(ctx->xc.xci, guest->id);
@@ -446,4 +583,44 @@ int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return xc_domain_unpause(ctx->xc.xci, guest->id);
+}
+
+int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return xc_domain_shutdown(ctx->xc.xci, guest->id, SHUTDOWN_poweroff);
+}
+
+int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    stream_desc* save_sd;
+    struct sr_session srs;
+    struct save_callbacks save_cbs;
+    uint32_t flags = XCFLAGS_DEBUG;//TODO
+
+    save_sd = guest->snapshot.sd;
+
+    if (save_sd == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    srs.ctx = ctx;
+    srs.guest = guest;
+
+    memset(&save_cbs, 0, sizeof(save_cbs));
+    save_cbs.suspend = h2_xen_save_cb_suspend;
+    save_cbs.data = &srs;
+
+    if (save_sd->type == stream_type_net)
+        flags |= XCFLAGS_LIVE;
+
+    ret = xc_domain_save(ctx->xc.xci, save_sd->fd, guest->id,
+                         0, 0, flags,
+                         &save_cbs, 0, XC_MIG_STREAM_NONE,
+                         0);
+
+out_ret:
+    return ret;
 }
