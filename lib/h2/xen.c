@@ -453,7 +453,6 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
-    int _ret;
 
     if (ctx == NULL || guest == NULL) {
         return EINVAL;
@@ -463,10 +462,7 @@ int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
 
 #ifdef CONFIG_H2_XEN_NOXS
     if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
-        _ret = h2_xen_noxs_domain_shutdown(ctx, guest);
-        if (_ret && !ret) {
-            ret = _ret;
-        }
+        ret = h2_xen_noxs_domain_shutdown(ctx, guest);
     }
 #else
     /* TODO what should we do for xenstore */
