@@ -41,7 +41,7 @@ all: $(1)
 .PHONY: $(1)
 
 $(1)_install: bin/$(1)
-	$$(call cmd, "INSTALL", $(1), cp -f, bin/$(1), $$(PREFIX)/bin/$(1))
+	$$(call cmd, "INSTALL", $(1), cp -f, bin/$(1) $$(PREFIX)/bin/$(1))
 
 install: $(1)_install
 .PHONY: $(1)_install
