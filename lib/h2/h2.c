@@ -210,6 +210,9 @@ void h2_guest_free(h2_guest** guest)
 
         case h2_kernel_buff_t_mem:
             break;
+
+        case h2_kernel_buff_t_none:
+            break;
     }
 
     switch ((*guest)->hyp.type) {
