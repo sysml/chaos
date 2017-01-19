@@ -20,7 +20,7 @@ distclean: ctags_distclean
 .PHONY: ctags_distclean
 
 cscope_clean:
-	$(call clean,"cscope.*",cscope.files cscope.in.out cscope.po.out)
+	$(call clean,"cscope.*",cscope.files cscope.out cscope.in.out cscope.po.out)
 
 clean: cscope_clean
 .PHONY: cscope_clean
