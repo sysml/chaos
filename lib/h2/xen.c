@@ -453,7 +453,6 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
-    int _ret;
 
     if (ctx == NULL || guest == NULL) {
         return EINVAL;
@@ -463,10 +462,7 @@ int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
 
 #ifdef CONFIG_H2_XEN_NOXS
     if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
-        _ret = h2_xen_noxs_domain_shutdown(ctx, guest);
-        if (_ret && !ret) {
-            ret = _ret;
-        }
+        ret = h2_xen_noxs_domain_shutdown(ctx, guest);
     }
 #else
     /* TODO what should we do for xenstore */
@@ -480,9 +476,18 @@ int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
     return h2_xen_xc_domain_save(ctx, guest);
 }
 
-/* TODO xs
- * ret = h2_xen_xs_domain_suspend(srs->ctx, srs->guest);
- */
+int h2_xen_domain_suspend(struct h2_xen_ctx* ctx, h2_guest* guest)
+{
+#ifdef CONFIG_H2_XEN_NOXS
+    return h2_xen_noxs_domain_suspend(ctx, guest);
+#else
+    /* TODO xs
+     * ret = h2_xen_xs_domain_suspend(ctx, guest);
+     */
+    return ENOSYS;
+#endif
+}
+
 int h2_xen_save_cb_suspend(void* user)
 {
     int ret;
@@ -512,7 +517,7 @@ int h2_xen_save_cb_suspend(void* user)
     }
     virq_evtchn = ret;
 
-    ret = h2_xen_noxs_domain_suspend(srs->ctx, srs->guest);
+    ret = h2_xen_domain_suspend(srs->ctx, srs->guest);
     if (ret) {
         ret = errno;
         goto out_unbind;
