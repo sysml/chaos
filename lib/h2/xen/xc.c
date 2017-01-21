@@ -624,3 +624,21 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
 out_ret:
     return ret;
 }
+
+int h2_xen_xc_domain_resume(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    if (ctx == NULL || guest == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = xc_domain_resume(ctx->xc.xci, guest->id, 1);
+    if (ret) {
+        ret = errno;
+    }
+
+out_ret:
+    return ret;
+}

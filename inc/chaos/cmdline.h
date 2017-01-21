@@ -73,6 +73,8 @@ struct cmdline {
     char* filename;
 
     tcp_endpoint destination;
+
+    bool keep_running;
 };
 typedef struct cmdline cmdline;
 

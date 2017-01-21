@@ -57,5 +57,6 @@ int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_xc_domain_resume(h2_xen_ctx* ctx, h2_guest* guest);
 
 #endif /* __H2__XEN__XC__H__ */

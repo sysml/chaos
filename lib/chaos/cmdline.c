@@ -152,15 +152,42 @@ static void __parse_destroy(int argc, char** argv, cmdline* cmd)
 
 static void __parse_save(int argc, char** argv, cmdline* cmd)
 {
-    if (argc != 3) {
-        fprintf(stderr, "Invalid number of arguments for 'save'.\n");
-        cmd->error = true;
-        return;
+    const char *short_opts = "k";
+    const struct option long_opts[] = {
+        { "keep-running"            , required_argument , NULL , 'k' },
+        { NULL , 0 , NULL , 0 }
+    };
+
+    int opt;
+    int opt_index;
+
+    while (1) {
+        opt = getopt_long(argc, argv, short_opts, long_opts, &opt_index);
+
+        if (opt == -1) {
+            break;
+        }
+
+        switch (opt) {
+            case 'k':
+                cmd->keep_running = true;
+                break;
+
+            default:
+                cmd->error = true;
+                break;
+        }
     }
 
-    __parse_guest_id(argv[1], cmd);
+    /* Now parse command */
+    if ((argc - optind) == 2) {
+        __parse_guest_id(argv[optind++], cmd);
+        cmd->filename = argv[optind++];
 
-    cmd->filename = argv[2];
+    } else {
+        fprintf(stderr, "Invalid number of arguments for 'save' %d.\n", argc - optind);
+        cmd->error = true;
+    }
 }
 
 static void __parse_restore(int argc, char** argv, cmdline* cmd)
@@ -328,8 +355,10 @@ void cmdline_usage(char* argv0)
     printf("    shutdown <guest_id>\n");
     printf("        Shutdown a running guest.\n");
     printf("\n");
-    printf("    save <guest_id> <img_file>\n");
+    printf("    save [options] <guest_id> <img_file>\n");
     printf("        Save a running guest state to <img_file>.\n");
+    printf("\n");
+    printf("        -k, --keep-running    Keep domain running after save.\n");
     printf("\n");
     printf("    restore <img_file>\n");
     printf("        Restore a guest from the state saved in <img_file>.\n");

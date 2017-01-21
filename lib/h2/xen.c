@@ -563,6 +563,11 @@ out_ret:
     return (ret == 0);
 }
 
+int h2_xen_domain_resume(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    return h2_xen_xc_domain_resume(ctx, guest);
+}
+
 int h2_xen_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return h2_xen_xc_domain_info(ctx, guest);

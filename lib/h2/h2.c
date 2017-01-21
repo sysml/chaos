@@ -258,6 +258,22 @@ int h2_guest_save(h2_ctx* ctx, h2_guest* guest)
     return ret;
 }
 
+int h2_guest_resume(h2_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_domain_resume(ctx->hyp.ctx.xen, guest);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+    return ret;
+}
+
 int h2_guest_destroy(h2_ctx* ctx, h2_guest* guest)
 {
     int ret;

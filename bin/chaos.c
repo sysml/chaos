@@ -156,6 +156,15 @@ int main(int argc, char** argv)
                 goto out_guest;
             }
 
+            if (cmd.keep_running) {
+                ret = h2_guest_resume(ctx, guest);
+            } else {
+                ret = h2_guest_destroy(ctx, guest);
+            }
+            if (ret) {
+                goto out_guest;
+            }
+
             h2_guest_free(&guest);
             h2_guest_ctrl_save_close(&gcs);
             break;
