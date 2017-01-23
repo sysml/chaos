@@ -45,15 +45,12 @@
 #include <h2/h2.h>
 #include <h2/xen.h>
 #include <h2/xen/dev.h>
+#include <ipc.h>
 #include <shell_daemon/cmdline.h>
 
 #define ERROR(format...) syslog(LOG_DAEMON | LOG_ERR, format)
 #define NOTICE(format...) syslog(LOG_DAEMON | LOG_NOTICE, format)
 #define INFO(format...) syslog(LOG_DAEMON | LOG_INFO, format)
-
-/* TODO: UDS name should be configurable */
-static char *sockname = "/tmp/shell_daemon_socket";
-#define MAX_SHELLS 10000UL
 
 /* Global state */
 struct {
