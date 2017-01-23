@@ -21,3 +21,15 @@ $(eval $(call smk_depend,restore_daemon,h2))
 $(restore_daemon_bin): LDFLAGS += -lh2
 $(restore_daemon_bin): LDFLAGS += $(XEN_LDFLAGS)
 $(restore_daemon_obj): CFLAGS += $(XEN_CFLAGS)
+
+# Daemon for shell precreation functionality
+shell_daemon_obj	:=
+shell_daemon_obj	+= bin/shell_daemon.o
+shell_daemon_obj	+= lib/shell_daemon/cmdline.o
+
+$(eval $(call smk_binary,shell_daemon,$(shell_daemon_obj)))
+$(eval $(call smk_depend,shell_daemon,h2))
+
+$(shell_daemon_bin): LDFLAGS += -lh2
+$(shell_daemon_bin): LDFLAGS += $(XEN_LDFLAGS)
+$(shell_daemon_obj): CFLAGS += $(XEN_CFLAGS)
