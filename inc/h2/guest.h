@@ -87,10 +87,13 @@ struct h2_guest {
             struct {
                 void* k_ptr;
                 size_t k_size;
+                void* rd_ptr;
+                size_t rd_size;
             } mem;
 
             struct {
                 char* k_path;
+                char* rd_path;
             } file;
         } buff;
     } kernel;

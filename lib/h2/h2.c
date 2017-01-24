@@ -215,6 +215,21 @@ void h2_guest_free(h2_guest** guest)
             break;
     }
 
+    switch ((*guest)->kernel.type) {
+        case h2_kernel_buff_t_file:
+            if ((*guest)->kernel.buff.file.rd_path != NULL) {
+                free((*guest)->kernel.buff.file.rd_path);
+                (*guest)->kernel.buff.file.rd_path = NULL;
+            }
+            break;
+
+        case h2_kernel_buff_t_mem:
+            break;
+
+        case h2_kernel_buff_t_none:
+            break;
+    }
+
     switch ((*guest)->hyp.type) {
         case h2_hyp_t_xen:
             h2_xen_guest_free(&((*guest)->hyp.guest.xen));
