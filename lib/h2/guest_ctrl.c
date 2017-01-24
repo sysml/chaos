@@ -106,16 +106,11 @@ out_ret:
     return ret;
 }
 
-int h2_guest_ctrl_create_open(h2_guest_ctrl_create* gc, bool restore)
+int h2_guest_ctrl_create_init(h2_guest_ctrl_create* gc, bool restore)
 {
     int ret;
 
     ret = stream_init(&gc->sd);
-    if (ret) {
-        goto out_ret;
-    }
-
-    ret = stream_open(&gc->sd);
     if (ret) {
         goto out_ret;
     }
@@ -137,21 +132,27 @@ out_ret:
     return ret;
 }
 
+void h2_guest_ctrl_create_destroy(h2_guest_ctrl_create* gc)
+{
+    stream_destroy(&gc->sd);
+}
+
+int h2_guest_ctrl_create_open(h2_guest_ctrl_create* gc)
+{
+    return stream_open(&gc->sd);
+}
+
 void h2_guest_ctrl_create_close(h2_guest_ctrl_create* gc)
 {
     stream_close(&gc->sd);
 }
 
-int h2_guest_ctrl_save_open(h2_guest_ctrl_save* gs)
+
+int h2_guest_ctrl_save_init(h2_guest_ctrl_save* gs)
 {
     int ret;
 
     ret = stream_init(&gs->sd);
-    if (ret) {
-        goto out_ret;
-    }
-
-    ret = stream_open(&gs->sd);
     if (ret) {
         goto out_ret;
     }
@@ -162,6 +163,15 @@ int h2_guest_ctrl_save_open(h2_guest_ctrl_save* gs)
 
 out_ret:
     return ret;
+}
+
+void h2_guest_ctrl_save_destroy(h2_guest_ctrl_save* gs)
+{
+}
+
+int h2_guest_ctrl_save_open(h2_guest_ctrl_save* gs)
+{
+    return stream_open(&gs->sd);
 }
 
 void h2_guest_ctrl_save_close(h2_guest_ctrl_save* gs)

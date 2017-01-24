@@ -38,6 +38,64 @@
 #include <h2/config.h>
 
 
+static int __guest_ctrl_create_open(h2_guest_ctrl_create* gcc, bool restore)
+{
+    int ret;
+
+    ret = h2_guest_ctrl_create_init(gcc, restore);
+    if (ret) {
+        goto out_err;
+    }
+
+    ret = h2_guest_ctrl_create_open(gcc);
+    if (ret) {
+        goto out_destroy;
+    }
+
+    return 0;
+
+out_destroy:
+    h2_guest_ctrl_create_destroy(gcc);
+out_err:
+    return ret;
+}
+
+static void __guest_ctrl_create_close(h2_guest_ctrl_create* gcc)
+{
+    h2_guest_ctrl_create_close(gcc);
+    h2_guest_ctrl_create_destroy(gcc);
+}
+
+static int __guest_ctrl_save_open(h2_guest_ctrl_save* gcs)
+{
+    int ret;
+
+    ret = h2_guest_ctrl_save_init(gcs);
+    if (ret) {
+        goto out_err;
+    }
+
+    ret = h2_guest_ctrl_save_open(gcs);
+    if (ret) {
+        goto out_destroy;
+    }
+
+    return 0;
+
+out_destroy:
+    h2_guest_ctrl_save_destroy(gcs);
+out_err:
+    return ret;
+}
+
+static void __guest_ctrl_save_close(h2_guest_ctrl_save* gcs)
+{
+    h2_guest_ctrl_save_close(gcs);
+    h2_guest_ctrl_save_destroy(gcs);
+}
+
+
+
 int main(int argc, char** argv)
 {
     int ret;
@@ -81,7 +139,7 @@ int main(int argc, char** argv)
             gcc.sd.file.op = stream_file_op_read;
             gcc.sd.file.filename = cmd.kernel;
 
-            ret = h2_guest_ctrl_create_open(&gcc, false);
+            ret = __guest_ctrl_create_open(&gcc, false);
             if (ret) {
                 goto out_h2;
             }
@@ -100,7 +158,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
-            h2_guest_ctrl_create_close(&gcc);
+            __guest_ctrl_create_close(&gcc);
             break;
 
         case op_destroy:
@@ -143,7 +201,7 @@ int main(int argc, char** argv)
             gcs.sd.file.op = stream_file_op_write;
             gcs.sd.file.filename = cmd.filename;
 
-            ret = h2_guest_ctrl_save_open(&gcs);
+            ret = __guest_ctrl_save_open(&gcs);
             if (ret) {
                 goto out_h2;
             }
@@ -173,7 +231,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
-            h2_guest_ctrl_save_close(&gcs);
+            __guest_ctrl_save_close(&gcs);
             break;
 
         case op_restore:
@@ -181,7 +239,7 @@ int main(int argc, char** argv)
             gcc.sd.file.op = stream_file_op_read;
             gcc.sd.file.filename = cmd.filename;
 
-            ret = h2_guest_ctrl_create_open(&gcc, true);
+            ret = __guest_ctrl_create_open(&gcc, true);
             if (ret) {
                 goto out_h2;
             }
@@ -197,7 +255,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
-            h2_guest_ctrl_create_close(&gcc);
+            __guest_ctrl_create_close(&gcc);
             break;
 
         case op_migrate:
@@ -205,7 +263,7 @@ int main(int argc, char** argv)
             gcs.sd.net.mode = stream_net_client;
             gcs.sd.net.endp.client.server_endp = cmd.destination;
 
-            ret = h2_guest_ctrl_save_open(&gcs);
+            ret = __guest_ctrl_save_open(&gcs);
             if (ret) {
                 goto out_h2;
             }
@@ -231,8 +289,7 @@ int main(int argc, char** argv)
             }
 
             h2_guest_free(&guest);
-
-            h2_guest_ctrl_save_close(&gcs);
+            __guest_ctrl_save_close(&gcs);
             break;
     }
 

@@ -38,6 +38,7 @@ struct stream_net_cfg {
 typedef struct stream_net_cfg stream_net_cfg;
 
 int stream_net_init(stream_net_cfg* cfg);
+int stream_net_destroy(stream_net_cfg* cfg);
 int stream_net_open(stream_net_cfg* cfg, int* fd);
 int stream_net_close(int fd);
 
