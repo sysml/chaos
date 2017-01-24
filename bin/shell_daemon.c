@@ -62,6 +62,7 @@ struct {
     struct h2_guest *shell[MAX_SHELLS];
     unsigned long remaining_shells;
     uint16_t last_ipaddr;
+    char buf[MAX_CONFFILE_SIZE];
 } global;
 
 void shutdown_shell_daemon(void)
@@ -210,12 +211,8 @@ int create_uds(void) {
 void wait_for_sockdata(void) {
     struct sockaddr_un addr;
     socklen_t addrlen = sizeof(addr);
-    char *buf;
-    ssize_t BUFLEN = 64;
     ssize_t recvd;
     int connfd;
-
-    buf = malloc(BUFLEN);
 
     connfd = accept(global.sockfd, (struct sockaddr*)&addr, &addrlen);
     if (connfd < 0) {
@@ -227,17 +224,17 @@ void wait_for_sockdata(void) {
         }
     }
     else {
-        recvd = recv(connfd, buf, BUFLEN-1, 0);
+        recvd = recv(connfd, global.buf, MAX_CONFFILE_SIZE, 0);
         if (recvd < 0) {
             ERROR("error during recv(): %d (%s)\n", errno, strerror(errno));
         }
         else {
-            if (recvd < BUFLEN)
-                buf[recvd] = '\0';
+            if (recvd < MAX_CONFFILE_SIZE)
+                global.buf[recvd] = '\0';
             else
-                buf[BUFLEN-1] = '\0';
-            INFO("received %s (%lu) from %s (%lu), %ld bytes\n", (char *)buf, strlen(buf), addr.sun_path, strlen(addr.sun_path), recvd);
-            send(connfd, buf, strlen(buf), 0);
+                global.buf[MAX_CONFFILE_SIZE-1] = '\0';
+            INFO("received %s (%lu) from %s (%lu), %ld bytes\n", (char *)global.buf, recvd, addr.sun_path, strlen(addr.sun_path), recvd);
+            send(connfd, global.buf, recvd, 0);
         }
         close(connfd);
     }

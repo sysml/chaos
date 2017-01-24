@@ -34,9 +34,48 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
+#include <errno.h>
+#include <string.h>
+#include <linux/un.h>
+#include <fcntl.h>
+#include <sys/sendfile.h>
+
 #include <chaos/cmdline.h>
 #include <h2/config.h>
+#include <ipc.h>
 
+/* Create VMs via the shell daemon, using precreated shells
+ * for faster creation times.
+ * Return the number of precreated shells, or a negative error value
+ */
+int create_via_daemon(char *cmd_kernel, int nr_doms)
+{
+    int filefd, sockfd;
+    int ret;
+    struct sockaddr_un addr;
+    int i;
+
+    filefd = open(cmd_kernel, O_RDONLY);
+    if (filefd < 0) {
+        return filefd;
+    }
+
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, sockname, UNIX_PATH_MAX);
+    sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    ret = connect(sockfd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret) {
+        return errno;
+    }
+    //XXX ret = send(sockfd, gcc->serialized_cfg.data, gcc->serialized_cfg.size, 0);
+    for (i = 0; i < nr_doms; i++) {
+        ret = sendfile(sockfd, filefd, NULL, MAX_CONFFILE_SIZE);
+        if (ret < 0) {
+            return i;
+        }
+    }
+    return i;
+}
 
 static int __guest_ctrl_create_open(h2_guest_ctrl_create* gcc, bool restore)
 {
@@ -144,11 +183,25 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
+            // try creating via the daemon first
+            // TODO: switch this on/off via option
+            if (ctx->hyp.type == h2_hyp_t_xen) {
+                ret = create_via_daemon(cmd.kernel, cmd.nr_doms);
+                if (ret < 0) {
+                    goto out_h2;
+                }
+                else if (ret == cmd.nr_doms) {
+                    // nothing else for us to do: early return.
+                    return 0;
+                }
+            }
+
+            // create all or the remaining VMs on our own
             ret = h2_guest_deserialize(ctx, &gcc, &guest);
             if (ret) {
                 goto out_h2;
             }
-            for (int i = 0; i < cmd.nr_doms; i++) {
+            for (int i = ret; i < cmd.nr_doms; i++) {
                 ret = h2_guest_create(ctx, guest);
                 if (ret) {
                     goto out_guest;
