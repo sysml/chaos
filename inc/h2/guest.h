@@ -85,10 +85,13 @@ struct h2_guest {
         h2_kernel_buff_t type;
         union {
             struct {
-                void* ptr;
-                size_t size;
+                void* k_ptr;
+                size_t k_size;
             } mem;
-            char* path;
+
+            struct {
+                char* k_path;
+            } file;
         } buff;
     } kernel;
 

@@ -121,7 +121,7 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
 
     if (conf->kernel && strcmp(conf->kernel, "")) {
         (*guest)->kernel.type = h2_kernel_buff_t_file;
-        (*guest)->kernel.buff.path = strdup(conf->kernel);
+        (*guest)->kernel.buff.file.k_path = strdup(conf->kernel);
     } else {
         (*guest)->kernel.type = h2_kernel_buff_t_none;
     }
@@ -202,7 +202,7 @@ static int __from_h2_xen(config* conf, h2_guest* guest)
     conf->name = guest->name;
     conf->name_set = true;
 
-    conf->kernel = guest->kernel.buff.path;
+    conf->kernel = guest->kernel.buff.file.k_path;
     conf->kernel_set = true;
 
     conf->cmdline = guest->cmdline;

@@ -204,8 +204,8 @@ void h2_guest_free(h2_guest** guest)
 
     switch ((*guest)->kernel.type) {
         case h2_kernel_buff_t_file:
-            free((*guest)->kernel.buff.path);
-            (*guest)->kernel.buff.path = NULL;
+            free((*guest)->kernel.buff.file.k_path);
+            (*guest)->kernel.buff.file.k_path = NULL;
             break;
 
         case h2_kernel_buff_t_mem:
