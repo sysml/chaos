@@ -424,7 +424,7 @@ int shell_daemon_cleanup(void) {
 
     unlink(sockname);
 
-    INFO("Destroying unused precreated shells...\n");
+    INFO("Destroying %lu unused precreated shells...\n", global.remaining_shells);
     for (i = 0; i < global.remaining_shells; i++) {
         // save first potential error
         if (!ret) {
