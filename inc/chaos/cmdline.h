@@ -74,7 +74,8 @@ struct cmdline {
 
     tcp_endpoint destination;
 
-    bool keep_running;
+    bool keep;
+    bool wait;
 };
 typedef struct cmdline cmdline;
 

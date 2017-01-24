@@ -123,9 +123,16 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
-            ret = h2_guest_shutdown(ctx, guest);
+            ret = h2_guest_shutdown(ctx, guest, cmd.wait);
             if (ret) {
                 goto out_guest;
+            }
+
+            if (cmd.keep == false) {
+                ret = h2_guest_destroy(ctx, guest);
+                if (ret) {
+                    goto out_guest;
+                }
             }
 
             h2_guest_free(&guest);
@@ -151,12 +158,12 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
-            ret = h2_guest_save(ctx, guest);
+            ret = h2_guest_save(ctx, guest, cmd.wait);
             if (ret) {
                 goto out_guest;
             }
 
-            if (cmd.keep_running) {
+            if (cmd.keep) {
                 ret = h2_guest_resume(ctx, guest);
             } else {
                 ret = h2_guest_destroy(ctx, guest);
@@ -213,7 +220,12 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
-            ret = h2_guest_save(ctx, guest);
+            ret = h2_guest_save(ctx, guest, cmd.wait);
+            if (ret) {
+                goto out_guest;
+            }
+
+            ret = h2_guest_destroy(ctx, guest);
             if (ret) {
                 goto out_guest;
             }

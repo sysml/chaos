@@ -53,17 +53,10 @@ int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, bool wait);
 
-int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest);
+int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest, bool wait);
 int h2_xen_domain_resume(h2_xen_ctx* ctx, h2_guest* guest);
-
-struct sr_session {
-    h2_xen_ctx* ctx;
-    h2_guest* guest;
-};
-
-int h2_xen_save_cb_suspend(void* user);
 
 int h2_xen_domain_info(h2_xen_ctx* ctx, h2_guest* guest);
 

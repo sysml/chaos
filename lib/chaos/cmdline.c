@@ -150,16 +150,19 @@ static void __parse_destroy(int argc, char** argv, cmdline* cmd)
     __parse_guest_id(argv[1], cmd);
 }
 
-static void __parse_save(int argc, char** argv, cmdline* cmd)
+static void __parse_shutdown(int argc, char** argv, cmdline* cmd)
 {
-    const char *short_opts = "k";
+    const char *short_opts = "ke";
     const struct option long_opts[] = {
-        { "keep-running"            , required_argument , NULL , 'k' },
+        { "keep"                    , required_argument , NULL , 'k' },
+        { "exit"                    , required_argument , NULL , 'e' },
         { NULL , 0 , NULL , 0 }
     };
 
     int opt;
     int opt_index;
+
+    cmd->wait = true;
 
     while (1) {
         opt = getopt_long(argc, argv, short_opts, long_opts, &opt_index);
@@ -170,9 +173,55 @@ static void __parse_save(int argc, char** argv, cmdline* cmd)
 
         switch (opt) {
             case 'k':
-                cmd->keep_running = true;
+                cmd->keep = true;
                 break;
+            case 'e':
+                cmd->wait = false;
+                break;
+            default:
+                cmd->error = true;
+                break;
+        }
+    }
 
+    /* Now parse command */
+    if ((argc - optind) == 1) {
+        __parse_guest_id(argv[optind++], cmd);
+
+    } else {
+        fprintf(stderr, "Invalid number of arguments for 'shutdown' %d.\n", argc - optind);
+        cmd->error = true;
+    }
+}
+
+static void __parse_save(int argc, char** argv, cmdline* cmd)
+{
+    const char *short_opts = "ke";
+    const struct option long_opts[] = {
+        { "keep-running"            , required_argument , NULL , 'k' },
+        { "exit"                    , required_argument , NULL , 'e' },
+        { NULL , 0 , NULL , 0 }
+    };
+
+    int opt;
+    int opt_index;
+
+    cmd->wait = true;
+
+    while (1) {
+        opt = getopt_long(argc, argv, short_opts, long_opts, &opt_index);
+
+        if (opt == -1) {
+            break;
+        }
+
+        switch (opt) {
+            case 'k':
+                cmd->keep = true;
+                break;
+            case 'e':
+                cmd->wait = false;
+                break;
             default:
                 cmd->error = true;
                 break;
@@ -203,27 +252,49 @@ static void __parse_restore(int argc, char** argv, cmdline* cmd)
 
 static void __parse_migrate(int argc, char** argv, cmdline* cmd)
 {
-    if (argc != 4) {
-        fprintf(stderr, "Invalid number of arguments for 'migrate'.\n");
-        cmd->error = true;
-        return;
+    const char *short_opts = "e";
+    const struct option long_opts[] = {
+        { "exit"                    , required_argument , NULL , 'e' },
+        { NULL , 0 , NULL , 0 }
+    };
+
+    int opt;
+    int opt_index;
+
+    cmd->wait = true;
+
+    while (1) {
+        opt = getopt_long(argc, argv, short_opts, long_opts, &opt_index);
+
+        if (opt == -1) {
+            break;
+        }
+
+        switch (opt) {
+            case 'e':
+                cmd->wait = false;
+                break;
+            default:
+                cmd->error = true;
+                break;
+        }
     }
 
-    __parse_guest_id(argv[1], cmd);
+    /* Now parse command */
+    if ((argc - optind) == 3) {
+        __parse_guest_id(argv[optind++], cmd);
 
-    errno = 0;
-    cmd->gid = (h2_guest_id) strtol(argv[1], NULL, 10);
-    if (errno) {
-        fprintf(stderr, "Invalid value for 'guest_id' argument'.\n");
+        if (inet_aton(argv[optind++], &cmd->destination.ip) == 0) {
+            cmd->error = true;
+            return;
+        }
+
+        cmd->destination.port = atoi(argv[optind++]);
+
+    } else {
+        fprintf(stderr, "Invalid number of arguments for 'migrate' %d.\n", argc - optind);
         cmd->error = true;
     }
-
-    if (inet_aton(argv[2], &cmd->destination.ip) == 0) {
-        cmd->error = true;
-        return;
-    }
-
-    cmd->destination.port = atoi(argv[3]);
 }
 
 static void __validate(cmdline* cmd)
@@ -308,7 +379,7 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
 
         } else if (strcmp(argv[optind], "shutdown") == 0) {
             cmd->op = op_shutdown;
-            __parse_destroy(argc, argv, cmd);
+            __parse_shutdown(argc, argv, cmd);
 
         } else if (strcmp(argv[optind], "save") == 0) {
             cmd->op = op_save;
@@ -352,8 +423,11 @@ void cmdline_usage(char* argv0)
     printf("    destroy <guest_id>\n");
     printf("        Terminate a running guest.\n");
     printf("\n");
-    printf("    shutdown <guest_id>\n");
+    printf("    shutdown [options] <guest_id>\n");
     printf("        Shutdown a running guest.\n");
+    printf("\n");
+    printf("        -k, --keep            Keep domain after shutdown instead of destroying.\n");
+    printf("        -e, --exit            Don't wait for death of guest.\n");
     printf("\n");
     printf("    save [options] <guest_id> <img_file>\n");
     printf("        Save a running guest state to <img_file>.\n");
@@ -363,7 +437,9 @@ void cmdline_usage(char* argv0)
     printf("    restore <img_file>\n");
     printf("        Restore a guest from the state saved in <img_file>.\n");
     printf("\n");
-    printf("    migrate <guest_id> <remote_ip> <remote_port>\n");
+    printf("    migrate [options] <guest_id> <remote_ip> <remote_port>\n");
     printf("        Migrate a running guest to a remote host.\n");
+    printf("\n");
+    printf("        -e, --exit            Don't wait for death of guest.\n");
     printf("\n");
 }
