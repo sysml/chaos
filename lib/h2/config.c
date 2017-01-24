@@ -54,6 +54,8 @@ struct config {
     bool name_set;
     const char* kernel;
     bool kernel_set;
+    const char* ramdisk;
+    bool ramdisk_set;
     const char* cmdline;
     bool cmdline_set;
 
@@ -122,6 +124,10 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
     if (conf->kernel && strcmp(conf->kernel, "")) {
         (*guest)->kernel.type = h2_kernel_buff_t_file;
         (*guest)->kernel.buff.file.k_path = strdup(conf->kernel);
+
+        if (conf->ramdisk && strcmp(conf->ramdisk, "")) {
+            (*guest)->kernel.buff.file.rd_path = strdup(conf->ramdisk);
+        }
     } else {
         (*guest)->kernel.type = h2_kernel_buff_t_none;
     }
@@ -204,6 +210,9 @@ static int __from_h2_xen(config* conf, h2_guest* guest)
 
     conf->kernel = guest->kernel.buff.file.k_path;
     conf->kernel_set = true;
+
+    conf->ramdisk = guest->kernel.buff.file.rd_path;
+    conf->ramdisk_set = (conf->ramdisk != NULL);
 
     conf->cmdline = guest->cmdline;
     conf->cmdline_set = true;
@@ -645,6 +654,20 @@ static void __parse_root(json_t* root, config* conf)
             conf->kernel = json_string_value(value);
             if (conf->kernel == NULL) {
                 fprintf(stderr, "Parameter 'kernel' has invalid type, must be string.\n");
+                conf->error = true;
+            }
+        } else if (strcmp(key, "ramdisk") == 0) {
+            if (conf->ramdisk_set) {
+                fprintf(stderr, "Parameter 'ramdisk' defined multiple times.\n");
+                conf->error = true;
+                continue;
+            }
+
+            conf->ramdisk_set = true;
+
+            conf->ramdisk = json_string_value(value);
+            if (conf->ramdisk == NULL) {
+                fprintf(stderr, "Parameter 'ramdisk' has invalid type, must be string.\n");
                 conf->error = true;
             }
         } else if (strcmp(key, "cmdline") == 0) {
