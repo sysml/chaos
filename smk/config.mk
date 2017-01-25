@@ -2,7 +2,7 @@
 
 # Include configuration
 ## Don't include configuration if we're either configuring or cleaning
-ifneq (,$(filter-out configure clean distclean,$(MAKECMDGOALS)))
+ifneq (,$(filter-out configure clean distclean properclean,$(MAKECMDGOALS)))
 -include $(smk_conf_file)
 endif
 
@@ -17,11 +17,11 @@ configure: $(smk_conf_file)
 
 .PHONY: configure
 
-configure_distclean:
+configure_properclean:
 	$(call clean, $(smk_conf_file), $(smk_conf_file))
 
-distclean: configure_distclean
-.PHONY: configure_distclean
+properclean: configure_properclean
+.PHONY: configure_properclean
 
 
 # Rules

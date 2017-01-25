@@ -44,7 +44,8 @@ SimpleMaKe provides the following targets:
 * **install**: install project's binaries and libraries on the system
 * **uninstall**: uninstall project from the system
 * **clean**: remove generated files except final binaries and libraries
-* **distclean**: remove all generated files
+* **distclean**: remove all generated files except `.config`
+* **properclean**: remove all generated files including `.config`
 * **configure**: Run a configuration script
 
 The system also defines targets for each of the binaries and libraries defined.
