@@ -196,9 +196,8 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
-            // try creating via the daemon first
-            // TODO: switch this on/off via option
-            if (ctx->hyp.type == h2_hyp_t_xen) {
+            if ((!cmd.skip_shell_daemon) && (ctx->hyp.type == h2_hyp_t_xen)) {
+                // Try creating via the daemon first
                 ret = create_via_daemon(cmd.kernel, cmd.nr_doms);
                 if (ret == cmd.nr_doms) {
                     // nothing else for us to do: early return.

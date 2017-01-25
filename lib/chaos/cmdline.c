@@ -52,6 +52,7 @@ static void __init(cmdline* cmd)
 #ifdef CONFIG_H2_XEN_NOXS
     cmd->enable_noxs = true;
 #endif
+    cmd->skip_shell_daemon = false;
 
     cmd->nr_doms = 1;
 }
@@ -97,9 +98,10 @@ static void __parse_create(int argc, char** argv, cmdline* cmd)
     int ret;
     int nr_doms;
 
-    const char *short_opts = "n:";
+    const char *short_opts = "n:s";
     const struct option long_opts[] = {
         { "nr-doms"            , required_argument , NULL , 'n' },
+        { "skip-daemon"        , no_argument       , NULL , 's' },
         { NULL , 0 , NULL , 0 }
     };
 
@@ -122,6 +124,10 @@ static void __parse_create(int argc, char** argv, cmdline* cmd)
                 } else {
                     cmd->nr_doms = nr_doms;
                 }
+                break;
+
+            case 's':
+                cmd->skip_shell_daemon = true;
                 break;
 
             default:
@@ -418,7 +424,8 @@ void cmdline_usage(char* argv0)
     printf("    create [options] <config_file>\n");
     printf("        Create a new guest based on <config_file>.\n");
     printf("\n");
-    printf("        -n, --nr-doms    Number of domains to create.\n");
+    printf("        -n, --nr-doms         Number of domains to create.\n");
+    printf("        -s, --skip-daemon     Don't try to contact shell daemon.\n");
     printf("\n");
     printf("    destroy <guest_id>\n");
     printf("        Terminate a running guest.\n");

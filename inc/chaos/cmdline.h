@@ -64,6 +64,7 @@ struct cmdline {
 #ifdef CONFIG_H2_XEN_NOXS
     bool enable_noxs;
 #endif
+    bool skip_shell_daemon;
 
     h2_guest_id gid;
     int nr_doms;
