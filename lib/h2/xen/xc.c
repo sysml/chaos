@@ -594,7 +594,7 @@ out_ret:
     return ret;
 }
 
-int h2_xen_xc_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_xc_domain_query(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
@@ -731,7 +731,7 @@ static int __shutdown_do(h2_xen_xc_shutdown_ctx* sctx)
     dec_ms = 10;
 
     while (timeout_ms > 0) {
-        h2_xen_xc_domain_info(sctx->ctx, sctx->guest);
+        h2_xen_xc_domain_query(sctx->ctx, sctx->guest);
         if (sctx->guest->shutdown) {
             break;
         }

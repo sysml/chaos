@@ -174,7 +174,7 @@ int h2_xen_guest_query(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
-    ret = h2_xen_xc_domain_info(ctx, guest);
+    ret = h2_xen_xc_domain_query(ctx, guest);
     if (ret) {
         goto out_err;
     }
