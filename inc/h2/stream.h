@@ -29,6 +29,7 @@ typedef struct stream_desc stream_desc;
 
 
 int stream_init(stream_desc* sd);
+int stream_destroy(stream_desc* sd);
 int stream_open(stream_desc* sd);
 int stream_close(stream_desc* sd);
 

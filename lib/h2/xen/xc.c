@@ -44,6 +44,9 @@
 #include <stdio.h>
 #include <xc_dom.h>
 #include <xencall.h>
+#include <xenguest.h>
+#include <xenevtchn.h>
+#include <poll.h>
 
 
 
@@ -585,19 +588,200 @@ int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
     return xc_domain_unpause(ctx->xc.xci, guest->id);
 }
 
-int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+
+struct h2_xen_xc_shutdown_ctx {
+    struct xenevtchn_handle *xce;
+    struct pollfd pollfd;
+    int evtchn;
+
+    bool wait;
+
+    h2_xen_ctx* ctx;
+    h2_guest* guest;
+    shutdown_callback_t cb;
+};
+typedef struct h2_xen_xc_shutdown_ctx h2_xen_xc_shutdown_ctx;
+
+
+static int __shutdown_ctx_close(h2_xen_xc_shutdown_ctx* sctx)
 {
-    return xc_domain_shutdown(ctx->xc.xci, guest->id, SHUTDOWN_poweroff);
+    int ret;
+    int _ret;
+
+    ret = 0;
+
+    if (sctx->xce == NULL) {
+        goto out_ret;
+    }
+
+    if (sctx->evtchn >= 0) {
+        _ret = xenevtchn_unbind(sctx->xce, sctx->evtchn);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+    }
+
+    _ret = xenevtchn_close(sctx->xce);
+    if (_ret && !ret) {
+        ret = _ret;
+    }
+
+out_ret:
+    return ret;
+
 }
 
-int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
+static int __shutdown_ctx_open(h2_xen_xc_shutdown_ctx* sctx)
 {
     int ret;
 
+    ret = 0;
+
+    memset(sctx, 0, sizeof(*sctx));
+    sctx->evtchn = -1;
+
+    sctx->xce = xenevtchn_open(NULL, 0);
+    if (sctx->xce == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    sctx->pollfd.fd = xenevtchn_fd(sctx->xce);
+    if (sctx->pollfd.fd < 0) {
+        ret = errno;
+        goto out_close;
+    }
+
+    sctx->pollfd.events = POLLIN | POLLPRI;
+
+    ret = xenevtchn_bind_virq(sctx->xce, VIRQ_DOM_EXC);
+    if (ret < 0) {
+        ret = errno;
+        goto out_close;
+    }
+    sctx->evtchn = ret;
+
+    return 0;
+
+out_close:
+    __shutdown_ctx_close(sctx);
+out_err:
+    return ret;
+}
+
+static int __shutdown_do(h2_xen_xc_shutdown_ctx* sctx)
+{
+    int ret;
+    int timeout_ms, dec_ms;
+
+    ret = sctx->cb(sctx->ctx, sctx->guest);
+    if (ret) {
+        ret = errno;
+        goto out_ret;
+    }
+
+    if (!sctx->wait) {
+        goto out_ret;
+    }
+
+
+    timeout_ms = 60 * 1000;
+    dec_ms = 10;
+
+    while (timeout_ms > 0) {
+        h2_xen_xc_domain_info(sctx->ctx, sctx->guest);
+        if (sctx->guest->shutdown) {
+            break;
+        }
+
+        ret = poll(&sctx->pollfd, 1, dec_ms);
+        if (ret < 0) {
+            ret = errno;
+            goto out_ret;
+
+        } else if (ret > 0) {
+            /* We wait one event, for VIRQ_DOM_EXC */
+            if (ret != 1 || (sctx->pollfd.revents & POLLIN) == 0) {
+                ret = errno;
+                goto out_ret;
+            }
+
+            ret = xenevtchn_pending(sctx->xce);
+            if (ret != sctx->evtchn) {
+                ret = errno;
+                goto out_ret;
+            }
+        }
+
+        timeout_ms -= dec_ms;
+    }
+
+    ret = 0;
+
+out_ret:
+    return ret;
+}
+
+int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait)
+{
+    int ret;
+    h2_xen_xc_shutdown_ctx sctx;
+
+    if (ctx == NULL || guest == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    if (ctx->xlib != h2_xen_xlib_t_xc) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ret = __shutdown_ctx_open(&sctx);
+    if (ret) {
+        goto out_err;
+    }
+
+    sctx.wait = wait;
+    sctx.ctx = ctx;
+    sctx.guest = guest;
+    sctx.cb = shutdown_cb;
+
+    ret = __shutdown_do(&sctx);
+
+    __shutdown_ctx_close(&sctx);
+
+out_err:
+    return ret;
+}
+
+static int __suspend_do(void* user)
+{
+    int ret;
+    h2_xen_xc_shutdown_ctx* sctx;
+
+    sctx = (h2_xen_xc_shutdown_ctx*) user;
+
+    ret = __shutdown_do(sctx);
+
+    /* libxc suspend callback returns 1 in case of success*/
+    return (ret == 0);
+}
+
+int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait)
+{
+    int ret;
     stream_desc* save_sd;
-    struct sr_session srs;
+    h2_xen_xc_shutdown_ctx sctx;
+
     struct save_callbacks save_cbs;
-    uint32_t flags = XCFLAGS_DEBUG;//TODO
+    uint32_t flags;
+
+
+    if (ctx == NULL || guest == NULL || shutdown_cb == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
 
     save_sd = guest->snapshot.sd;
 
@@ -606,13 +790,21 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_ret;
     }
 
-    srs.ctx = ctx;
-    srs.guest = guest;
+    ret = __shutdown_ctx_open(&sctx);
+    if (ret) {
+        goto out_ret;
+    }
+
+    sctx.wait = wait;
+    sctx.ctx = ctx;
+    sctx.guest = guest;
+    sctx.cb = shutdown_cb;
 
     memset(&save_cbs, 0, sizeof(save_cbs));
-    save_cbs.suspend = h2_xen_save_cb_suspend;
-    save_cbs.data = &srs;
+    save_cbs.suspend = __suspend_do;
+    save_cbs.data = &sctx;
 
+    flags = 0;
     if (save_sd->type == stream_type_net)
         flags |= XCFLAGS_LIVE;
 
@@ -620,6 +812,26 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest)
                          0, 0, flags,
                          &save_cbs, 0, XC_MIG_STREAM_NONE,
                          0);
+
+    __shutdown_ctx_close(&sctx);
+
+out_ret:
+    return ret;
+}
+
+int h2_xen_xc_domain_resume(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    if (ctx == NULL || guest == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = xc_domain_resume(ctx->xc.xci, guest->id, 1);
+    if (ret) {
+        ret = errno;
+    }
 
 out_ret:
     return ret;

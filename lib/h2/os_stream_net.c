@@ -46,6 +46,11 @@ out_ret:
     return ret;
 }
 
+static void server_connection_close(stream_net_cfg* cfg)
+{
+    close(cfg->endp.server.listen_fd);
+}
+
 static int server_connection_wait(int listen_fd, int* conn_fd)
 {
     int ret;
@@ -105,6 +110,32 @@ int stream_net_init(stream_net_cfg* cfg)
     switch (cfg->mode) {
         case stream_net_server:
             ret = server_connection_open(cfg);
+            break;
+        case stream_net_client:
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+
+out_ret:
+    return ret;
+}
+
+int stream_net_destroy(stream_net_cfg* cfg)
+{
+    int ret;
+
+    if (cfg == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = 0;
+
+    switch (cfg->mode) {
+        case stream_net_server:
+            server_connection_close(cfg);
             break;
         case stream_net_client:
             break;

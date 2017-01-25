@@ -36,6 +36,35 @@ out_ret:
     return ret;
 }
 
+int stream_destroy(stream_desc* sd)
+{
+    int ret;
+
+    if (sd == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = 0;
+
+    switch (sd->type) {
+        case stream_type_file:
+            break;
+        case stream_type_net:
+            stream_net_destroy(&sd->net);
+            break;
+        default:
+            ret = EINVAL;
+            break;
+    }
+    if (ret) {
+        goto out_ret;
+    }
+
+out_ret:
+    return ret;
+}
+
 int stream_open(stream_desc* sd)
 {
     int ret;

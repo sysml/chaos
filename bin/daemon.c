@@ -30,6 +30,14 @@ int main(int argc, char** argv)
 #endif
     hyp_cfg.xen.xlib = h2_xen_xlib_t_xc;
 
+    gcc.sd.type = stream_type_net;
+    gcc.sd.net.mode = stream_net_server;
+    gcc.sd.net.endp.server.listen_endp.port = cmd.port;
+
+    ret = h2_guest_ctrl_create_init(&gcc, true);
+    if (ret) {
+        goto out;
+    }
 
     while (1) {
         ret = h2_open(&ctx, h2_hyp_t_xen, &hyp_cfg);
@@ -37,11 +45,7 @@ int main(int argc, char** argv)
             goto out_h2;
         }
 
-        gcc.sd.type = stream_type_net;
-        gcc.sd.net.mode = stream_net_server;
-        gcc.sd.net.endp.server.listen_endp.port = cmd.port;
-
-        ret = h2_guest_ctrl_create_open(&gcc, true);
+        ret = h2_guest_ctrl_create_open(&gcc);
         if (ret) {
             goto out_h2;
         }
@@ -62,6 +66,8 @@ out_ctx:
 out_h2:
         h2_close(&ctx);
     }
+
+    h2_guest_ctrl_create_destroy(&gcc);
 
 out:
     return -ret;

@@ -73,6 +73,9 @@ struct cmdline {
     char* filename;
 
     tcp_endpoint destination;
+
+    bool keep;
+    bool wait;
 };
 typedef struct cmdline cmdline;
 
