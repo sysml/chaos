@@ -250,6 +250,16 @@ int fastboot_domain(h2_serialized_cfg* cfg)
         WARN("%s:%d This has never been tested and might break horribly!\n", __FILE__, __LINE__);
     }
 
+    if (request->cmdline) {
+        shell->cmdline = strdup(request->cmdline);
+    }
+    if (request->name) {
+        if (shell->name) {
+            free(shell->name);
+        }
+        shell->name = strdup(request->name);
+    }
+
     ret = h2_xen_domain_fastboot(global.ctx->hyp.ctx.xen, shell);
     if (ret) {
         goto out_h2;
@@ -313,8 +323,9 @@ h2_guest* precreate_shell(unsigned long ind, h2_hyp_cfg* cfg, unsigned long memo
         return NULL;
     }
 
-    shell->name = strdup("h2g");
-    shell->cmdline = strdup("");
+    shell->name = strdup("[shell]");
+    /* This is set on actual creation
+    shell->cmdline = strdup(""); */
     shell->memory = memory;
     shell->vcpus.count = 1;
     shell->address_size = 64;
