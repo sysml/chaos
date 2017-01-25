@@ -460,11 +460,37 @@ int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
     switch (guest->kernel.type) {
         case h2_kernel_buff_t_mem:
             ret = xc_dom_kernel_mem(img,
-                    guest->kernel.buff.mem.ptr, guest->kernel.buff.mem.size);
+                    guest->kernel.buff.mem.k_ptr, guest->kernel.buff.mem.k_size);
             break;
 
         case h2_kernel_buff_t_file:
-            ret = xc_dom_kernel_file(img, guest->kernel.buff.path);
+            ret = xc_dom_kernel_file(img, guest->kernel.buff.file.k_path);
+            break;
+
+        default:
+            ret = EINVAL;
+            break;
+    }
+    if (ret) {
+        goto out_err;
+    }
+
+    switch (guest->kernel.type) {
+        case h2_kernel_buff_t_mem:
+            if (guest->kernel.buff.mem.rd_ptr) {
+                ret = xc_dom_ramdisk_mem(img,
+                        guest->kernel.buff.mem.rd_ptr, guest->kernel.buff.mem.rd_size);
+            } else {
+                ret = 0;
+            }
+            break;
+
+        case h2_kernel_buff_t_file:
+            if (guest->kernel.buff.file.rd_path) {
+                ret = xc_dom_ramdisk_file(img, guest->kernel.buff.file.rd_path);
+            } else {
+                ret = 0;
+            }
             break;
 
         default:
