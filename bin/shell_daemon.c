@@ -49,6 +49,7 @@
 #include <shell_daemon/cmdline.h>
 
 #define ERROR(format...) syslog(LOG_DAEMON | LOG_ERR, format)
+#define WARN(format...) syslog(LOG_DAEMON | LOG_WARNING, format)
 #define NOTICE(format...) syslog(LOG_DAEMON | LOG_NOTICE, format)
 #define INFO(format...) syslog(LOG_DAEMON | LOG_INFO, format)
 
@@ -208,11 +209,67 @@ int create_uds(void) {
     return sockfd;
 }
 
+int fastboot_domain(h2_serialized_cfg* cfg)
+{
+    struct h2_guest* request;
+    struct h2_guest* shell = global.shell[global.remaining_shells-1];
+    int ret = 0;
+
+    if (global.remaining_shells == 0) {
+        // If anybody can think of a better fitting error code...
+        return ENODEV;
+    }
+
+    ret = h2_guest_alloc(&request, h2_hyp_t_xen);
+    if (ret) {
+        return ret;
+    }
+
+    ret = config_parse(cfg, h2_hyp_t_xen, &request);
+    if (ret) {
+        goto out_h2;
+    }
+
+    // For now, just some very basic checks
+    if ( (request->memory > shell->memory)
+        || (request->address_size != shell->address_size)
+        || (request->vcpus.count > shell->vcpus.count) ) {
+        ret = EINVAL;
+        goto out_h2;
+    }
+
+    if (request->kernel.type == h2_kernel_buff_t_file) {
+        if (request->kernel.buff.file.k_path) {
+            shell->kernel.buff.file.k_path = strdup(request->kernel.buff.file.k_path);
+        }
+        if (request->kernel.buff.file.rd_path) {
+            shell->kernel.buff.file.rd_path = strdup(request->kernel.buff.file.rd_path);
+        }
+    }
+    else {
+        WARN("%s:%d This has never been tested and might break horribly!\n", __FILE__, __LINE__);
+    }
+
+    ret = h2_xen_domain_fastboot(global.ctx->hyp.ctx.xen, shell);
+    if (ret) {
+        goto out_h2;
+    }
+    else {
+        global.remaining_shells--;
+    }
+
+out_h2:
+    h2_guest_free(&request);
+    return ret;
+}
+
 void wait_for_sockdata(void) {
     struct sockaddr_un addr;
     socklen_t addrlen = sizeof(addr);
-    ssize_t recvd;
+    ssize_t len;
+    int ret;
     int connfd;
+    h2_serialized_cfg cfg;
 
     connfd = accept(global.sockfd, (struct sockaddr*)&addr, &addrlen);
     if (connfd < 0) {
@@ -224,18 +281,21 @@ void wait_for_sockdata(void) {
         }
     }
     else {
-        recvd = recv(connfd, global.buf, MAX_CONFFILE_SIZE, 0);
-        if (recvd < 0) {
+        len = recv(connfd, global.buf, MAX_CONFFILE_SIZE, 0);
+        if (len < 0) {
             ERROR("error during recv(): %d (%s)\n", errno, strerror(errno));
+            // chances are this might also fail in this case, but we might as well try
+            *(int *)global.buf = (int)len;
+            send(connfd, global.buf, sizeof(int), 0);
         }
         else {
-            if (recvd < MAX_CONFFILE_SIZE)
-                global.buf[recvd] = '\0';
-            else
-                global.buf[MAX_CONFFILE_SIZE-1] = '\0';
-            INFO("received %s (%lu) from %s (%lu), %ld bytes\n", (char *)global.buf, recvd, addr.sun_path, strlen(addr.sun_path), recvd);
-            send(connfd, global.buf, recvd, 0);
+            cfg.data = global.buf;
+            cfg.size = len;
+            ret = fastboot_domain(&cfg);
+            *(int *)global.buf = ret;
+            send(connfd, global.buf, sizeof(int), 0);
         }
+
         close(connfd);
     }
 }

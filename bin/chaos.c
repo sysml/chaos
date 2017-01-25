@@ -54,6 +54,7 @@ int create_via_daemon(char *cmd_kernel, int nr_doms)
     int ret;
     struct sockaddr_un addr;
     int i;
+    char buf[64];
 
     filefd = open(cmd_kernel, O_RDONLY);
     if (filefd < 0) {
@@ -67,13 +68,25 @@ int create_via_daemon(char *cmd_kernel, int nr_doms)
     if (ret) {
         return errno;
     }
-    //XXX ret = send(sockfd, gcc->serialized_cfg.data, gcc->serialized_cfg.size, 0);
     for (i = 0; i < nr_doms; i++) {
         ret = sendfile(sockfd, filefd, NULL, MAX_CONFFILE_SIZE);
         if (ret < 0) {
-            return i;
+            goto out_err;
+        }
+        ret = recv(sockfd, buf, 64, 0);
+        if (ret < sizeof(int)) {
+            fprintf(stderr, "Received unexpectedly small return value from shell-daemon! (%d < %lu)\n",
+                    ret, sizeof(int));
+            goto out_err;
+        }
+        int retval = *(int *)buf;
+        if (retval) {
+            goto out_err;
         }
     }
+    return i;
+
+out_err:
     return i;
 }
 
@@ -192,7 +205,8 @@ int main(int argc, char** argv)
                 }
                 else if (ret == cmd.nr_doms) {
                     // nothing else for us to do: early return.
-                    return 0;
+                    ret = 0;
+                    goto out;
                 }
             }
 
