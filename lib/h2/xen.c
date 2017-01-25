@@ -174,6 +174,11 @@ int h2_xen_guest_query(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
+    ret = h2_xen_xc_domain_info(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
     if (ctx->xs.active) {
         ret = h2_xen_xs_probe_guest(ctx, guest);
         if (ret) {
@@ -492,9 +497,4 @@ int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
 int h2_xen_domain_resume(h2_xen_ctx* ctx, h2_guest* guest)
 {
     return h2_xen_xc_domain_resume(ctx, guest);
-}
-
-int h2_xen_domain_info(h2_xen_ctx* ctx, h2_guest* guest)
-{
-    return h2_xen_xc_domain_info(ctx, guest);
 }

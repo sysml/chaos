@@ -325,15 +325,6 @@ int h2_guest_serialize(h2_ctx* ctx, h2_guest_ctrl_save* gs, h2_guest* guest)
 {
     int ret;
 
-    switch (ctx->hyp.type) {
-        case h2_hyp_t_xen:
-            ret = h2_xen_domain_info(ctx->hyp.ctx.xen, guest);
-            break;
-        default:
-            ret = EINVAL;
-            break;
-    }
-
     ret = gs->cb_do_config(&gs->serialized_cfg, ctx->hyp.type, guest);
     if (ret) {
         goto out_ret;
