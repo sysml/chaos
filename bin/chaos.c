@@ -66,7 +66,7 @@ int create_via_daemon(char *cmd_kernel, int nr_doms)
     sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
     ret = connect(sockfd, (struct sockaddr*)&addr, sizeof(addr));
     if (ret) {
-        return errno;
+        return -errno;
     }
     for (i = 0; i < nr_doms; i++) {
         ret = sendfile(sockfd, filefd, NULL, MAX_CONFFILE_SIZE);
@@ -200,13 +200,16 @@ int main(int argc, char** argv)
             // TODO: switch this on/off via option
             if (ctx->hyp.type == h2_hyp_t_xen) {
                 ret = create_via_daemon(cmd.kernel, cmd.nr_doms);
-                if (ret < 0) {
-                    goto out_h2;
-                }
-                else if (ret == cmd.nr_doms) {
+                if (ret == cmd.nr_doms) {
                     // nothing else for us to do: early return.
                     ret = 0;
                     goto out;
+                }
+                else if (ret < 0) {
+                    /* We got an error, most likely because the daemon
+                     * isn't up. Reset ret and continue below.
+                     */
+                    ret = 0;
                 }
             }
 

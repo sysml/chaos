@@ -256,6 +256,7 @@ int fastboot_domain(h2_serialized_cfg* cfg)
     }
     else {
         global.remaining_shells--;
+        INFO("Fastbooted domain from shell %lu\n", global.remaining_shells);
     }
 
 out_h2:
