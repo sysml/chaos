@@ -480,6 +480,22 @@ int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest)
         goto out_err;
     }
 
+    /* NOTE: **THIS IS A HACK** might break at any time depending on changes to libxc
+     *
+     * With that said, the cmdline might not be available yet during the precreate phase (actually
+     * that's the most likely scenario). Therefore it needs to be updated during the fastboot phase,
+     * i.e. in here. Although we need to provide a command line to libxc during `xc_dom_allocate`
+     * as of Xen 4.8, it is only used during the `xc_dom_build_image` call when it is transfered to
+     * the start_info page. Therefore we change the string here just before that call.
+     *
+     * It is not necessary to free the cmdline in case it was already there. This is because of the
+     * way libxc allocates memory, TL;DR it frees it all in one go at the end, being enough to use
+     * `xc_dom_strdup` instead of `strdup`.
+     */
+    if (guest->cmdline) {
+        img->cmdline = xc_dom_strdup(img, guest->cmdline);
+    }
+
     ret = xc_dom_build_image(img);
     if (ret) {
         goto out_err;
