@@ -135,6 +135,7 @@ static int __dev_query_vif_config(h2_xen_ctx* ctx, h2_guest* guest,
 
     ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_QUERY_CFG, &ioctlq);
     if (ret) {
+        ret = errno;
         goto out_ret;
     }
 
