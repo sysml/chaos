@@ -231,6 +231,38 @@ void h2_xen_guest_free(h2_xen_guest** guest)
 }
 
 
+int h2_xen_guest_list(h2_xen_ctx* ctx, struct guestq* guests)
+{
+    int ret;
+
+    h2_guest* guest;
+
+    ret = h2_xen_xc_domain_list(ctx, guests);
+    if (ret) {
+        goto out_err;
+    }
+
+    TAILQ_FOREACH(guest, guests, list) {
+        if (ctx->xs.active) {
+            h2_xen_xs_probe_guest(ctx, guest);
+        }
+
+#ifdef CONFIG_H2_XEN_NOXS
+        if (ctx->noxs.active) {
+            h2_xen_noxs_probe_guest(ctx, guest);
+        }
+#endif
+
+        h2_xen_dev_enumerate(ctx, guest);
+    }
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
+
 int h2_xen_domain_precreate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;

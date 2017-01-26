@@ -240,6 +240,30 @@ void h2_guest_free(h2_guest** guest)
     (*guest) = NULL;
 }
 
+int h2_guest_list(h2_ctx* ctx, struct guestq* guests)
+{
+    int ret;
+
+    if (ctx == NULL || guests == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    switch (ctx->hyp.type) {
+        case h2_hyp_t_xen:
+            ret = h2_xen_guest_list(ctx->hyp.ctx.xen, guests);
+            break;
+    }
+    if (ret) {
+        goto out_err;
+    }
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
 
 int h2_guest_create(h2_ctx* ctx, h2_guest* guest)
 {

@@ -40,6 +40,7 @@
 
 #include <h2/hyp.h>
 #include <h2/stream.h>
+#include <util/queue.h>
 
 
 typedef uint64_t h2_guest_id;
@@ -83,6 +84,8 @@ typedef uint64_t h2_cpu_mask_t[4];
     } while (0)
 
 struct h2_guest {
+    TAILQ_ENTRY(h2_guest) list;
+
     h2_guest_id id;
 
     char* name;
