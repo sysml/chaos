@@ -633,12 +633,26 @@ out_ret:
 
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    return xc_domain_destroy(ctx->xc.xci, guest->id);
+    int ret;
+
+    ret = xc_domain_destroy(ctx->xc.xci, guest->id);
+    if (ret) {
+        return errno;
+    }
+
+    return 0;
 }
 
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
 {
-    return xc_domain_unpause(ctx->xc.xci, guest->id);
+    int ret;
+
+    ret = xc_domain_unpause(ctx->xc.xci, guest->id);
+    if (ret) {
+        return errno;
+    }
+
+    return 0;
 }
 
 
