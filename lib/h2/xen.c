@@ -180,25 +180,16 @@ int h2_xen_guest_query(h2_xen_ctx* ctx, h2_guest* guest)
     }
 
     if (ctx->xs.active) {
-        ret = h2_xen_xs_probe_guest(ctx, guest);
-        if (ret) {
-            goto out_err;
-        }
+        h2_xen_xs_probe_guest(ctx, guest);
     }
 
 #ifdef CONFIG_H2_XEN_NOXS
     if (ctx->noxs.active) {
-        ret = h2_xen_noxs_probe_guest(ctx, guest);
-        if (ret) {
-            goto out_err;
-        }
+        h2_xen_noxs_probe_guest(ctx, guest);
     }
 #endif
 
-    ret = h2_xen_dev_enumerate(ctx, guest);
-    if (ret) {
-        goto out_err;
-    }
+    h2_xen_dev_enumerate(ctx, guest);
 
     return 0;
 
