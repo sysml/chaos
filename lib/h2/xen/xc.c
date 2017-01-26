@@ -611,7 +611,7 @@ int h2_xen_xc_domain_query(h2_xen_ctx* ctx, h2_guest* guest)
 
     guest->hyp.guest.xen->pvh = xcinfo.flags & XEN_DOMINF_pvh_guest;
 
-    guest->memory = xcinfo.tot_pages * 4096 / 1024; /* TODO macros */
+    guest->memory = xcinfo.max_pages * 4096 / 1024; /* TODO macros */
     guest->vcpus.count = xcinfo.nr_online_vcpus;
 
     guest->shutdown = ((xcinfo.flags & XEN_DOMINF_shutdown) != 0);
