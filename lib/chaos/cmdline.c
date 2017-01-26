@@ -303,6 +303,14 @@ static void __parse_migrate(int argc, char** argv, cmdline* cmd)
     }
 }
 
+static void __parse_list(int argc, char** argv, cmdline* cmd)
+{
+    if (argc != 1) {
+        fprintf(stderr, "Invalid number of arguments for 'list' %d.\n", argc - 1);
+        cmd->error = true;
+    }
+}
+
 static void __validate(cmdline* cmd)
 {
     if (cmd->op == op_none && !cmd->help) {
@@ -399,6 +407,9 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
             cmd->op = op_migrate;
             __parse_migrate(argc, argv, cmd);
 
+        } else if (strcmp(argv[optind], "list") == 0) {
+            cmd->op = op_list;
+            __parse_list(argc, argv, cmd);
 
         } else {
             cmd->error = true;
@@ -448,5 +459,8 @@ void cmdline_usage(char* argv0)
     printf("        Migrate a running guest to a remote host.\n");
     printf("\n");
     printf("        -e, --exit            Don't wait for death of guest.\n");
+    printf("\n");
+    printf("    list\n");
+    printf("        List running guests.\n");
     printf("\n");
 }
