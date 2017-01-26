@@ -87,6 +87,20 @@ static int __evtchn_close(h2_xen_ctx* ctx, evtchn_port_t evtchn)
     return ret;
 }
 
+static void __xc_domaininfo_to_h2_guest(xc_domaininfo_t* dominfo, h2_guest* guest)
+{
+    guest->id = dominfo->domain;
+
+    /* TODO: Use a macro for this conversion */
+    guest->memory = dominfo->max_pages * 4096 / 1024;
+    guest->vcpus.count = dominfo->nr_online_vcpus;
+
+    guest->paused = ((dominfo->flags & XEN_DOMINF_paused) != 0);
+    guest->shutdown = ((dominfo->flags & XEN_DOMINF_shutdown) != 0);
+
+    guest->hyp.guest.xen->pvh = ((dominfo->flags & XEN_DOMINF_pvh_guest) != 0);
+}
+
 int h2_xen_xc_open(h2_xen_ctx* ctx, h2_xen_cfg* cfg)
 {
     int ret;
@@ -598,23 +612,20 @@ int h2_xen_xc_domain_query(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
 
-    xc_domaininfo_t xcinfo;
+    xc_domaininfo_t dominfo;
 
-    ret = xc_domain_getinfolist(ctx->xc.xci, guest->id, 1, &xcinfo);
+    ret = xc_domain_getinfolist(ctx->xc.xci, guest->id, 1, &dominfo);
     if (ret < 0) {
+        ret = errno;
         goto out_ret;
-    }
-    if (ret == 0 || xcinfo.domain != guest->id) {
+    } else if (ret == 0 || dominfo.domain != guest->id) {
         ret = EINVAL;
         goto out_ret;
     }
 
-    guest->hyp.guest.xen->pvh = xcinfo.flags & XEN_DOMINF_pvh_guest;
+    __xc_domaininfo_to_h2_guest(&dominfo, guest);
 
-    guest->memory = xcinfo.max_pages * 4096 / 1024; /* TODO macros */
-    guest->vcpus.count = xcinfo.nr_online_vcpus;
-
-    guest->shutdown = ((xcinfo.flags & XEN_DOMINF_shutdown) != 0);
+    return 0;
 
 out_ret:
     return ret;
