@@ -458,7 +458,9 @@ int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
         ret = h2_xen_xc_domain_shutdown(ctx, guest, h2_xen_noxs_domain_shutdown, wait);
     }
 #else
-    /* TODO what should we do for xenstore */
+    if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
+        ret = h2_xen_xc_domain_shutdown(ctx, guest, h2_xen_xs_domain_shutdown, wait);
+    }
 #endif
 
     return ret;
@@ -479,7 +481,9 @@ int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
         ret = h2_xen_xc_domain_save(ctx, guest, h2_xen_noxs_domain_suspend, wait);
     }
 #else
-    /* TODO what should we do for xenstore */
+    if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
+        ret = h2_xen_xc_domain_save(ctx, guest, h2_xen_xs_domain_suspend, wait);
+    }
 #endif
 
     return ret;

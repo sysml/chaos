@@ -429,14 +429,59 @@ out:
     return ret;
 }
 
-int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+static int __xs_domain_pwrctl(h2_xen_ctx* ctx, h2_guest* guest,
+        char* cmd, char* token)
 {
-    return 0; /* TODO */
+    int ret;
+    char* dom_path;
+    xs_transaction_t th;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
+    dom_path = guest->hyp.guest.xen->priv.xs.dom_path;
+
+    if (!xs_watch(ctx->xs.xsh, "@releaseDomain", token)) {
+        ret = errno;
+        goto out;
+    }
+
+th_start:
+    th = xs_transaction_start(ctx->xs.xsh);
+
+    ret = __write_kv(ctx, th, dom_path, "control/shutdown", cmd);
+    if (ret) {
+        goto th_end;
+    }
+
+th_end:
+    if (ret) {
+        xs_transaction_end(ctx->xs.xsh, th, true);
+        xs_unwatch(ctx->xs.xsh, "@releaseDomain", token);
+    } else {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
+            if (errno == EAGAIN) {
+                goto th_start;
+            } else {
+                ret = errno;
+            }
+        }
+    }
+
+out:
+    return ret;
 }
 
-int h2_xen_xs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, void* user)
 {
-    return 0; /* TODO */
+    return __xs_domain_pwrctl(ctx, guest, "poweroff", (char*) user);
+}
+
+int h2_xen_xs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest, void* user)
+{
+    return __xs_domain_pwrctl(ctx, guest, "suspend", (char*) user);
 }
 
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)

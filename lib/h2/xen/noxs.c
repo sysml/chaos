@@ -280,12 +280,12 @@ static int __noxs_domain_pwrctl(h2_xen_ctx* ctx, h2_guest* guest, enum noxs_user
     return ret;
 }
 
-int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, void* user)
 {
     return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_poweroff);
 }
 
-int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest, void* user)
 {
     return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_suspend);
 }

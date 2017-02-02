@@ -49,7 +49,7 @@ void h2_xen_xc_close(h2_xen_ctx* ctx);
 void h2_xen_xc_priv_free(h2_xen_guest* guest);
 
 
-typedef int (*shutdown_callback_t)(h2_xen_ctx* ctx, h2_guest* guest);
+typedef int (*shutdown_callback_t)(h2_xen_ctx* ctx, h2_guest* guest, void* user);
 
 int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest);
