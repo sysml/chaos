@@ -165,7 +165,11 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
 
     idx = 0;
     for (int i = 0; i < xs_list_num; i++) {
+        char* be_dev_path;
         char* be_id_str;
+        char* ip_str;
+        char* mac_str;
+        char* bridge_str;
 
         dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
         if (!dev) {
@@ -175,10 +179,29 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
 
         asprintf(&fe_dev_path, "%s/%s", fe_path, xs_list[i]);
 
+        ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
+        if (ret) {
+            goto free_fe_dev_path;
+        }
+
         ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend-id", &be_id_str);
         if (ret) {
-            free(fe_dev_path);
-            continue;
+            goto free_be_dev_path;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "ip", &ip_str);
+        if (ret) {
+            goto free_be_id;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "mac", &mac_str);
+        if (ret) {
+            goto free_ip;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "bridge", &bridge_str);
+        if (ret) {
+            goto free_mac;
         }
 
         dev->type = h2_xen_dev_t_vif;
@@ -186,17 +209,37 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
         dev->dev.vif.valid = true;
         dev->dev.vif.meth = h2_xen_dev_meth_t_xs;
         dev->dev.vif.backend_id = atoi(be_id_str);
-        /* FIXME: Fill dev->dev.vif.ip */
-        /* FIXME: Fill dev->dev.vif.mac */
-        dev->dev.vif.bridge = NULL;
+
+        if (inet_aton(ip_str, &dev->dev.vif.ip) == 0) {
+            goto free_bridge;
+        }
+
+        ret = sscanf(mac_str, "%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8,
+                     &dev->dev.vif.mac[0], &dev->dev.vif.mac[1], &dev->dev.vif.mac[2],
+                     &dev->dev.vif.mac[3], &dev->dev.vif.mac[4], &dev->dev.vif.mac[5]);
+        if (ret != 6) {
+            goto free_bridge;
+        }
+
+        dev->dev.vif.bridge = strdup(bridge_str);
         dev->dev.vif.script = NULL;
 
+free_bridge:
+        free(bridge_str);
+free_mac:
+        free(mac_str);
+free_ip:
+        free(ip_str);
+free_be_id:
         free(be_id_str);
+free_be_dev_path:
+        free(be_dev_path);
+free_fe_dev_path:
         free(fe_dev_path);
-
     }
 
     free(xs_list);
+
 out_path:
     free(fe_path);
 
