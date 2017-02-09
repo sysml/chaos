@@ -429,6 +429,8 @@ int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
         guest->hyp.guest.xen->priv.xs.active = true;
         guest->hyp.guest.xen->priv.xs.dom_path = dom_path;
         free(xs_val);
+
+        ret = __read_kv(ctx, XBT_NULL, dom_path, "name", &guest->name);
     }
 
 out:
