@@ -45,8 +45,6 @@
 #include <xc_dom.h>
 #include <xencall.h>
 #include <xenguest.h>
-#include <xenevtchn.h>
-#include <poll.h>
 
 
 
@@ -657,243 +655,39 @@ int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest)
 
 
 struct h2_xen_xc_shutdown_ctx {
-    /* NOXS: Event channel handle used for receiving notifications */
-    struct xenevtchn_handle* xce;
-    /* NOXS: The port through which notifications are received */
-    int evtchn;
-
-    /* XS: Token used in shutdown notifications */
-    char* token;
-
-    struct pollfd pollfd;
-
-    bool wait;
-
     h2_xen_ctx* ctx;
     h2_guest* guest;
-    shutdown_callback_t cb;
+    h2_shutdown_callback_t shutdown_cb;
+    void* user;
 };
 typedef struct h2_xen_xc_shutdown_ctx h2_xen_xc_shutdown_ctx;
 
 
-static int __shutdown_ctx_close(h2_xen_xc_shutdown_ctx* sctx)
-{
-#ifdef CONFIG_H2_XEN_NOXS
-    int ret;
-    int _ret;
-
-    ret = 0;
-
-    if (sctx->xce == NULL) {
-        goto out_ret;
-    }
-
-    if (sctx->evtchn >= 0) {
-        _ret = xenevtchn_unbind(sctx->xce, sctx->evtchn);
-        if (_ret && !ret) {
-            ret = _ret;
-        }
-    }
-
-    _ret = xenevtchn_close(sctx->xce);
-    if (_ret && !ret) {
-        ret = _ret;
-    }
-
-out_ret:
-    return ret;
-
-#else
-    if (sctx->token) {
-        free(sctx->token);
-        sctx->token = NULL;
-    }
-
-    return 0;
-#endif
-}
-
-static int __shutdown_ctx_open(h2_xen_xc_shutdown_ctx* sctx, h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait)
-{
-    int ret;
-
-    ret = 0;
-
-    memset(sctx, 0, sizeof(*sctx));
-    sctx->evtchn = -1;
-
-#ifdef CONFIG_H2_XEN_NOXS
-    sctx->xce = xenevtchn_open(NULL, 0);
-    if (sctx->xce == NULL) {
-        ret = errno;
-        goto out_err;
-    }
-
-    ret = xenevtchn_bind_virq(sctx->xce, VIRQ_DOM_EXC);
-    if (ret < 0) {
-        ret = errno;
-        goto out_close;
-    }
-    sctx->evtchn = ret;
-
-    sctx->pollfd.fd = xenevtchn_fd(sctx->xce);
-    if (sctx->pollfd.fd < 0) {
-        ret = errno;
-        goto out_close;
-    }
-
-
-#else
-    asprintf(&sctx->token, "chaos-%lu", guest->id);
-    if (sctx->token == NULL) {
-        ret = errno;
-        goto out_err;
-    }
-
-    sctx->pollfd.fd = xs_fileno(ctx->xs.xsh);
-    if (sctx->pollfd.fd < 0) {
-        ret = errno;
-        goto out_close;
-    }
-#endif
-
-    sctx->pollfd.events = POLLIN | POLLPRI;
-
-    sctx->wait = wait;
-    sctx->ctx = ctx;
-    sctx->guest = guest;
-    sctx->cb = shutdown_cb;
-
-    return 0;
-
-out_close:
-    __shutdown_ctx_close(sctx);
-out_err:
-    return ret;
-}
-
-static int __shutdown_do(h2_xen_xc_shutdown_ctx* sctx)
-{
-    int ret;
-    int timeout_ms, dec_ms;
-
-    ret = sctx->cb(sctx->ctx, sctx->guest, sctx->token);
-    if (ret) {
-        ret = errno;
-        goto out_ret;
-    }
-
-    if (!sctx->wait) {
-        goto out_ret;
-    }
-
-
-    timeout_ms = 60 * 1000;
-    dec_ms = 10;
-
-    while (timeout_ms > 0) {
-        h2_xen_xc_domain_query(sctx->ctx, sctx->guest);
-        if (sctx->guest->shutdown) {
-            break;
-        }
-
-        ret = poll(&sctx->pollfd, 1, dec_ms);
-        if (ret < 0) {
-            ret = errno;
-            goto out_ret;
-
-        } else if (ret > 0) {
-            /* We wait one event, for VIRQ_DOM_EXC */
-            if (ret != 1 || (sctx->pollfd.revents & POLLIN) == 0) {
-                ret = errno;
-                goto out_ret;
-            }
-
-#ifdef CONFIG_H2_XEN_NOXS
-            ret = xenevtchn_pending(sctx->xce);
-            if (ret != sctx->evtchn) {
-                ret = errno;
-                goto out_ret;
-            }
-#else
-            char** retw;
-
-            retw = xs_check_watch(sctx->ctx->xs.xsh);
-            if (!retw) {
-                if (errno == EAGAIN || errno == EINTR)
-                    continue;
-
-                ret = errno;
-                goto out_ret;
-            }
-
-            if (strcmp(retw[0], "@releaseDomain") || strcmp(retw[1], sctx->token)) {
-                ret = -1;
-            }
-
-            free(retw);
-
-            if (ret < 0) {
-                goto out_ret;
-            }
-#endif
-        }
-
-        timeout_ms -= dec_ms;
-    }
-
-    ret = 0;
-
-out_ret:
-    return ret;
-}
-
-int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait)
-{
-    int ret;
-    h2_xen_xc_shutdown_ctx sctx;
-
-    if (ctx == NULL || guest == NULL) {
-        ret = EINVAL;
-        goto out_err;
-    }
-
-    if (ctx->xlib != h2_xen_xlib_t_xc) {
-        ret = EINVAL;
-        goto out_err;
-    }
-
-    ret = __shutdown_ctx_open(&sctx, ctx, guest, shutdown_cb, wait);
-    if (ret) {
-        goto out_err;
-    }
-
-    ret = __shutdown_do(&sctx);
-
-    __shutdown_ctx_close(&sctx);
-
-out_err:
-    return ret;
-}
-
-static int __suspend_do(void* user)
+static int __xc_suspend_do(void* xc_user)
 {
     int ret;
     h2_xen_xc_shutdown_ctx* sctx;
 
-    sctx = (h2_xen_xc_shutdown_ctx*) user;
+    sctx = (h2_xen_xc_shutdown_ctx*) xc_user;
 
-    ret = __shutdown_do(sctx);
+    if (sctx == NULL || sctx->shutdown_cb == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
 
+    ret = sctx->shutdown_cb(sctx->ctx, sctx->guest, sctx->user);
+
+out_ret:
     /* libxc suspend callback returns 1 in case of success*/
     return (ret == 0);
 }
 
-int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait)
+int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest,
+        h2_shutdown_callback_t shutdown_cb, void* user)
 {
     int ret;
     stream_desc* save_sd;
-    h2_xen_xc_shutdown_ctx sctx;
+    h2_xen_xc_shutdown_ctx xc_sctx;
 
     struct save_callbacks save_cbs;
     uint32_t flags;
@@ -911,14 +705,14 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t 
         goto out_ret;
     }
 
-    ret = __shutdown_ctx_open(&sctx, ctx, guest, shutdown_cb, wait);
-    if (ret) {
-        goto out_ret;
-    }
+    xc_sctx.ctx = ctx;
+    xc_sctx.guest = guest;
+    xc_sctx.shutdown_cb = shutdown_cb;
+    xc_sctx.user = user;
 
     memset(&save_cbs, 0, sizeof(save_cbs));
-    save_cbs.suspend = __suspend_do;
-    save_cbs.data = &sctx;
+    save_cbs.suspend = __xc_suspend_do;
+    save_cbs.data = &xc_sctx;
 
     flags = 0;
     if (save_sd->type == stream_type_net)
@@ -928,8 +722,6 @@ int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t 
                          0, 0, flags,
                          &save_cbs, 0, XC_MIG_STREAM_NONE,
                          0);
-
-    __shutdown_ctx_close(&sctx);
 
 out_ret:
     return ret;

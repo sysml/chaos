@@ -67,4 +67,16 @@ int h2_guest_resume(h2_ctx* ctx, h2_guest* guest);
 int h2_guest_serialize(h2_ctx* ctx, h2_guest_ctrl_save* gs, h2_guest* guest);
 int h2_guest_deserialize(h2_ctx* ctx, h2_guest_ctrl_create* gc, h2_guest** guest);
 
+
+enum h2_shutdown_reason {
+    h2_shutdown_none ,
+    h2_shutdown_poweroff ,
+    h2_shutdown_suspend
+};
+typedef enum h2_shutdown_reason h2_shutdown_reason;
+
+
+typedef int (*h2_query_callback_t)(h2_xen_ctx* ctx, h2_guest* guest);
+typedef int (*h2_shutdown_callback_t)(h2_xen_ctx* ctx, h2_guest* guest, void* user);
+
 #endif /* __H2__H2__H__ */
