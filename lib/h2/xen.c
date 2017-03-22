@@ -446,6 +446,7 @@ int h2_xen_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest)
 int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
 {
     int ret;
+    int _ret;
 
     if (ctx == NULL || guest == NULL) {
         return EINVAL;
@@ -455,18 +456,50 @@ int h2_xen_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
 
 #ifdef CONFIG_H2_XEN_NOXS
     if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
-        ret = h2_xen_xc_domain_shutdown(ctx, guest, h2_xen_noxs_domain_shutdown, wait);
-    }
-#else
-    /* TODO what should we do for xenstore */
-#endif
+        h2_xen_noxs_shutdown_ctx noxs_sctx;
 
+        ret = h2_xen_noxs_shutdown_ctx_open(&noxs_sctx, h2_shutdown_poweroff,
+                h2_xen_xc_domain_query, wait);
+        if (ret) {
+            ret = errno;
+            goto out_ret;
+        }
+
+        ret = h2_xen_noxs_domain_shutdown(ctx, guest, &noxs_sctx);
+
+        _ret = h2_xen_noxs_shutdown_ctx_close(&noxs_sctx);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+
+    } else if (ctx->xs.active && guest->hyp.guest.xen->xs.active)
+#endif
+    {
+        h2_xen_xs_shutdown_ctx xs_sctx;
+
+        ret = h2_xen_xs_shutdown_ctx_open(&xs_sctx, h2_shutdown_poweroff,
+                ctx, guest, h2_xen_xc_domain_query, wait);
+        if (ret) {
+            ret = errno;
+            goto out_ret;
+        }
+
+        ret = h2_xen_xs_domain_shutdown(ctx, guest, &xs_sctx);
+
+        _ret = h2_xen_xs_shutdown_ctx_close(&xs_sctx);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+    }
+
+out_ret:
     return ret;
 }
 
 int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
 {
     int ret;
+    int _ret;
 
     if (ctx == NULL || guest == NULL) {
         return EINVAL;
@@ -476,12 +509,47 @@ int h2_xen_domain_save(h2_xen_ctx* ctx, h2_guest* guest, bool wait)
 
 #ifdef CONFIG_H2_XEN_NOXS
     if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
-        ret = h2_xen_xc_domain_save(ctx, guest, h2_xen_noxs_domain_suspend, wait);
-    }
-#else
-    /* TODO what should we do for xenstore */
-#endif
+        h2_xen_noxs_shutdown_ctx noxs_sctx;
 
+        ret = h2_xen_noxs_shutdown_ctx_open(&noxs_sctx, h2_shutdown_suspend,
+                h2_xen_xc_domain_query, wait);
+        if (ret) {
+            ret = errno;
+            goto out_ret;
+        }
+
+        ret = h2_xen_xc_domain_save(ctx, guest,
+                (h2_shutdown_callback_t) h2_xen_noxs_domain_shutdown, &noxs_sctx);
+
+        _ret = h2_xen_noxs_shutdown_ctx_close(&noxs_sctx);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+
+
+    } else if (ctx->xs.active && guest->hyp.guest.xen->xs.active)
+#endif
+    {
+        h2_xen_xs_shutdown_ctx xs_sctx;
+
+        ret = h2_xen_xs_shutdown_ctx_open(&xs_sctx, h2_shutdown_suspend,
+                ctx, guest, h2_xen_xc_domain_query, wait);
+        if (ret) {
+            ret = errno;
+            goto out_ret;
+        }
+
+        ret = h2_xen_xc_domain_save(ctx, guest,
+                (h2_shutdown_callback_t) h2_xen_xs_domain_shutdown, &xs_sctx);
+
+        _ret = h2_xen_xs_shutdown_ctx_close(&xs_sctx);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+
+    }
+
+out_ret:
     return ret;
 }
 

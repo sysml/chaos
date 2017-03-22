@@ -46,6 +46,7 @@
 #include <xen/devctl.h>
 #include <xencall.h>
 #include <xenforeignmemory.h>
+#include <xenevtchn.h>
 
 
 static int __guest_pre(h2_xen_ctx* ctx, h2_guest* guest)
@@ -280,14 +281,152 @@ static int __noxs_domain_pwrctl(h2_xen_ctx* ctx, h2_guest* guest, enum noxs_user
     return ret;
 }
 
-int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_noxs_shutdown_ctx_close(h2_xen_noxs_shutdown_ctx* sctx)
 {
-    return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_poweroff);
+    int ret;
+    int _ret;
+
+    ret = 0;
+
+    if (sctx->xce == NULL) {
+        goto out_ret;
+    }
+
+    if (sctx->evtchn >= 0) {
+        _ret = xenevtchn_unbind(sctx->xce, sctx->evtchn);
+        if (_ret && !ret) {
+            ret = _ret;
+        }
+    }
+
+    _ret = xenevtchn_close(sctx->xce);
+    if (_ret && !ret) {
+        ret = _ret;
+    }
+
+out_ret:
+    return ret;
 }
 
-int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_noxs_shutdown_ctx_open(h2_xen_noxs_shutdown_ctx* sctx,
+        h2_shutdown_reason reason, h2_query_callback_t query_func, bool wait)
 {
-    return __noxs_domain_pwrctl(ctx, guest, noxs_user_sd_suspend);
+    int ret;
+
+    if (sctx == NULL || query_func == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ret = 0;
+
+    memset(sctx, 0, sizeof(*sctx));
+    sctx->evtchn = -1;
+
+    switch (reason) {
+        case h2_shutdown_poweroff:
+            sctx->reason = noxs_user_sd_poweroff;
+            break;
+        case h2_shutdown_suspend:
+            sctx->reason = noxs_user_sd_suspend;
+            break;
+        default:
+            ret = EINVAL;
+            goto out_err;
+    }
+
+    sctx->xce = xenevtchn_open(NULL, 0);
+    if (sctx->xce == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    ret = xenevtchn_bind_virq(sctx->xce, VIRQ_DOM_EXC);
+    if (ret < 0) {
+        ret = errno;
+        goto out_close;
+    }
+    sctx->evtchn = ret;
+
+    sctx->pollfd.fd = xenevtchn_fd(sctx->xce);
+    if (sctx->pollfd.fd < 0) {
+        ret = errno;
+        goto out_close;
+    }
+    sctx->pollfd.events = POLLIN | POLLPRI;
+
+    sctx->query_func = query_func;
+    sctx->wait = wait;
+
+    return 0;
+
+out_close:
+    h2_xen_noxs_shutdown_ctx_close(sctx);
+out_err:
+    return ret;
+}
+
+int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest,
+        h2_xen_noxs_shutdown_ctx* sctx)
+{
+    int ret;
+    int timeout_ms, dec_ms;
+
+    if (ctx == NULL || guest == NULL || sctx == NULL) {
+        ret = EINVAL;
+        goto out_ret;
+    }
+
+    ret = __noxs_domain_pwrctl(ctx, guest, sctx->reason);
+    if (ret) {
+        ret = errno;
+        goto out_ret;
+    }
+
+    if (!sctx->wait) {
+        goto out_ret;
+    }
+
+    timeout_ms = 60 * 1000;
+    dec_ms = 10;
+
+    while (timeout_ms > 0) {
+        ret= sctx->query_func(ctx, guest);
+        if (ret) {
+            goto out_ret;
+        }
+
+        if (guest->shutdown) {
+            break;
+        }
+
+        ret = poll(&sctx->pollfd, 1, dec_ms);
+        if (ret < 0) {
+            ret = errno;
+            goto out_ret;
+        }
+
+        if (ret > 0) {
+            /* We wait one event, for VIRQ_DOM_EXC */
+            if (ret != 1 || (sctx->pollfd.revents & POLLIN) == 0) {
+                ret = errno;
+                goto out_ret;
+            }
+
+            ret = xenevtchn_pending(sctx->xce);
+            if (ret != sctx->evtchn) {
+                ret = errno;
+                goto out_ret;
+            }
+        }
+
+        timeout_ms -= dec_ms;
+    }
+
+    ret = 0;
+
+out_ret:
+    return ret;
 }
 
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)

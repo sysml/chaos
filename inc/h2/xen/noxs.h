@@ -38,13 +38,35 @@
 #define __H2__XEN__NOXS__H__
 
 #include <h2/h2.h>
+#include <poll.h>
 
 
 int h2_xen_noxs_open(h2_xen_ctx* ctx);
 int h2_xen_noxs_close(h2_xen_ctx* ctx);
 
-int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_noxs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest);
+
+struct h2_xen_noxs_shutdown_ctx {
+    int reason;
+
+    /* Event channel handle used for receiving notifications */
+    struct xenevtchn_handle* xce;
+    /* The port through which notifications are received */
+    int evtchn;
+
+    struct pollfd pollfd;
+
+    bool wait;
+    h2_query_callback_t query_func;
+};
+typedef struct h2_xen_noxs_shutdown_ctx h2_xen_noxs_shutdown_ctx;
+
+int h2_xen_noxs_shutdown_ctx_open(h2_xen_noxs_shutdown_ctx* sctx,
+        h2_shutdown_reason reason, h2_query_callback_t query_func, bool wait);
+int h2_xen_noxs_shutdown_ctx_close(h2_xen_noxs_shutdown_ctx* sctx);
+
+int h2_xen_noxs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest,
+        h2_xen_noxs_shutdown_ctx* sctx);
+
 
 int h2_xen_noxs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_noxs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);

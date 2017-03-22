@@ -38,6 +38,7 @@
 #define __H2__XEN__XS__H__
 
 #include <h2/h2.h>
+#include <poll.h>
 
 
 int h2_xen_xs_open(h2_xen_ctx* ctx);
@@ -50,8 +51,28 @@ int h2_xen_xs_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_domain_intro(h2_xen_ctx* ctx, h2_guest* guest,
         evtchn_port_t evtchn, unsigned int gmfn);
 
-int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest);
+
+struct h2_xen_xs_shutdown_ctx {
+    char* reason;
+    char* shutdown_path;
+    char* token;
+
+    struct pollfd pollfd;
+
+    bool wait;
+    h2_query_callback_t query_func;
+};
+typedef struct h2_xen_xs_shutdown_ctx h2_xen_xs_shutdown_ctx;
+
+int h2_xen_xs_shutdown_ctx_open(h2_xen_xs_shutdown_ctx* sctx,
+        h2_shutdown_reason reason,
+        h2_xen_ctx* ctx, h2_guest* guest,
+        h2_query_callback_t query_func, bool wait);
+int h2_xen_xs_shutdown_ctx_close(h2_xen_xs_shutdown_ctx* sctx);
+
+int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest,
+        h2_xen_xs_shutdown_ctx* sctx);
+
 
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest);

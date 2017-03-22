@@ -46,6 +46,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <xenstore.h>
+#include <xenevtchn.h>
 
 
 static int __guest_pre(h2_xen_ctx* ctx, h2_guest* guest)
@@ -165,7 +166,11 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
 
     idx = 0;
     for (int i = 0; i < xs_list_num; i++) {
+        char* be_dev_path;
         char* be_id_str;
+        char* ip_str;
+        char* mac_str;
+        char* bridge_str;
 
         dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
         if (!dev) {
@@ -175,10 +180,29 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
 
         asprintf(&fe_dev_path, "%s/%s", fe_path, xs_list[i]);
 
+        ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
+        if (ret) {
+            goto free_fe_dev_path;
+        }
+
         ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend-id", &be_id_str);
         if (ret) {
-            free(fe_dev_path);
-            continue;
+            goto free_be_dev_path;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "ip", &ip_str);
+        if (ret) {
+            goto free_be_id;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "mac", &mac_str);
+        if (ret) {
+            goto free_ip;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "bridge", &bridge_str);
+        if (ret) {
+            goto free_mac;
         }
 
         dev->type = h2_xen_dev_t_vif;
@@ -186,17 +210,37 @@ static int __enumerate_vif(h2_xen_ctx* ctx, h2_guest* guest)
         dev->dev.vif.valid = true;
         dev->dev.vif.meth = h2_xen_dev_meth_t_xs;
         dev->dev.vif.backend_id = atoi(be_id_str);
-        /* FIXME: Fill dev->dev.vif.ip */
-        /* FIXME: Fill dev->dev.vif.mac */
-        dev->dev.vif.bridge = NULL;
+
+        if (inet_aton(ip_str, &dev->dev.vif.ip) == 0) {
+            goto free_bridge;
+        }
+
+        ret = sscanf(mac_str, "%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8":%"SCNx8,
+                     &dev->dev.vif.mac[0], &dev->dev.vif.mac[1], &dev->dev.vif.mac[2],
+                     &dev->dev.vif.mac[3], &dev->dev.vif.mac[4], &dev->dev.vif.mac[5]);
+        if (ret != 6) {
+            goto free_bridge;
+        }
+
+        dev->dev.vif.bridge = strdup(bridge_str);
         dev->dev.vif.script = NULL;
 
+free_bridge:
+        free(bridge_str);
+free_mac:
+        free(mac_str);
+free_ip:
+        free(ip_str);
+free_be_id:
         free(be_id_str);
+free_be_dev_path:
+        free(be_dev_path);
+free_fe_dev_path:
         free(fe_dev_path);
-
     }
 
     free(xs_list);
+
 out_path:
     free(fe_path);
 
@@ -386,14 +430,256 @@ out:
     return ret;
 }
 
-int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest)
+static int __xs_domain_pwrctl(h2_xen_ctx* ctx, h2_guest* guest,
+        char* cmd, char* token)
 {
-    return 0; /* TODO */
+    int ret;
+    char* dom_path = NULL;
+    char* shutdown_path = NULL;
+    xs_transaction_t th;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
+    dom_path = guest->hyp.guest.xen->priv.xs.dom_path;
+
+th_start:
+    th = xs_transaction_start(ctx->xs.xsh);
+
+    ret = __write_kv(ctx, th, dom_path, "control/shutdown", cmd);
+    if (ret) {
+        goto th_end;
+    }
+
+th_end:
+    if (ret) {
+        xs_transaction_end(ctx->xs.xsh, th, true);
+    } else {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
+            if (errno == EAGAIN) {
+                goto th_start;
+            } else {
+                ret = errno;
+            }
+        }
+    }
+
+out:
+    if (shutdown_path) {
+        free(shutdown_path);
+    }
+    return ret;
 }
 
-int h2_xen_xs_domain_suspend(h2_xen_ctx* ctx, h2_guest* guest)
+int h2_xen_xs_shutdown_ctx_close(h2_xen_xs_shutdown_ctx* sctx)
 {
-    return 0; /* TODO */
+    if (sctx->shutdown_path) {
+        free(sctx->shutdown_path);
+        sctx->shutdown_path = NULL;
+    }
+    if (sctx->token) {
+        free(sctx->token);
+        sctx->token = NULL;
+    }
+
+    return 0;
+}
+
+int h2_xen_xs_shutdown_ctx_open(h2_xen_xs_shutdown_ctx* sctx,
+        h2_shutdown_reason reason,
+        h2_xen_ctx* ctx, h2_guest* guest,
+        h2_query_callback_t query_func, bool wait)
+{
+    int ret;
+
+    ret = 0;
+
+    memset(sctx, 0, sizeof(*sctx));
+
+    switch (reason) {
+        case h2_shutdown_poweroff:
+            sctx->reason = "poweroff";
+            break;
+        case h2_shutdown_suspend:
+            sctx->reason = "suspend";
+            break;
+        default:
+            ret = EINVAL;
+            goto out_err;
+    }
+
+    sctx->pollfd.fd = xs_fileno(ctx->xs.xsh);
+    if (sctx->pollfd.fd < 0) {
+        ret = errno;
+        goto out_close;
+    }
+    sctx->pollfd.events = POLLIN | POLLPRI;
+
+    sctx->query_func = query_func;
+    sctx->wait = wait;
+
+
+    asprintf(&sctx->token, "chaos-%lu", guest->id);
+    if (sctx->token == NULL) {
+        ret = errno;
+        goto out_err;
+    }
+
+    return 0;
+
+out_close:
+    h2_xen_xs_shutdown_ctx_close(sctx);
+out_err:
+    return ret;
+}
+
+struct h2_xs_watch {
+    char* path;
+    bool initialized;
+    int skip_events_num;
+};
+
+int h2_xen_xs_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest,
+        h2_xen_xs_shutdown_ctx* sctx)
+{
+    int ret;
+    int timeout_ms, dec_ms;
+    bool acked, released;
+
+    char* dom_path;
+    char* shutdown_path;
+    struct h2_xs_watch watches[2];
+    char** retw;
+
+
+    dom_path = guest->hyp.guest.xen->priv.xs.dom_path;
+
+    asprintf(&shutdown_path, "%s/%s", dom_path, "control/shutdown");
+
+    memset(watches, 0, sizeof(watches));
+
+    /* watch shutdown path for guest ack */
+    watches[0].path = shutdown_path;
+    watches[0].skip_events_num = 1;
+    ret = xs_watch(ctx->xs.xsh, watches[0].path, sctx->token);
+    if (ret == false) {
+        ret = errno;
+        goto out_ret;
+    }
+    /* watch @releaseDomain for guest shutdown completion */
+    watches[1].path = "@releaseDomain";
+    ret = xs_watch(ctx->xs.xsh, watches[1].path, sctx->token);
+    if (ret == false) {
+        ret = errno;
+        goto out_unwatch0;
+    }
+
+    /* trigger shutdown */
+    ret = __xs_domain_pwrctl(ctx, guest, sctx->reason, sctx->token);
+    if (ret) {
+        ret = errno;
+        goto out_unwatch1;
+    }
+
+    if (!sctx->wait) {
+        goto out_unwatch1;
+    }
+
+
+    timeout_ms = 60 * 1000;
+    dec_ms = 1;
+
+    acked = false;
+    released = false;
+
+    while (timeout_ms > 0) {
+        ret = sctx->query_func(ctx, guest);
+        if (ret) {
+            goto out_unwatch1;
+        }
+
+        if (guest->shutdown) {
+            break;
+
+        } else if (released) {
+            ret = -1; /* TODO this is a fatal one */
+            goto out_unwatch1;
+        }
+
+        ret = poll(&sctx->pollfd, 1, dec_ms);
+        if (ret < 0) {
+            ret = errno;
+            goto out_unwatch1;
+        }
+
+        if (ret > 0) {
+            /* We wait one event */
+            if (ret != 1 || (sctx->pollfd.revents & POLLIN) == 0) {
+                ret = errno;
+                goto out_unwatch1;
+            }
+
+            retw = xs_check_watch(ctx->xs.xsh);
+            if (!retw) {
+                if (errno == EAGAIN || errno == EINTR)
+                    continue;
+
+                ret = errno;
+                goto out_unwatch1;
+            }
+
+            for (int i = 0; i < 2; i++) {
+                struct h2_xs_watch* w = &watches[i];
+
+                if (strcmp(retw[0], w->path) || strcmp(retw[1], sctx->token))
+                    continue;
+
+                if (!w->initialized) {
+                    /* received spurious event */
+                    w->initialized = true;
+
+                } else if (w->skip_events_num) {
+                    /* watch generated by our write */
+                    w->skip_events_num--;
+
+                } else {
+                    if (strcmp(w->path, shutdown_path) == 0) {
+                        /* guest ack'd */
+                        acked = true;
+
+                    } else if (strcmp(w->path, "@releaseDomain") == 0) {
+                        if (acked) {
+                            released = true;
+                        }
+                        /* else guest crashed */
+                    }
+                }
+            }
+
+            free(retw);
+
+            if (ret < 0) {
+                goto out_ret;
+            }
+        }
+
+        timeout_ms -= dec_ms;
+    }
+
+    ret = 0;
+
+out_unwatch1:
+    xs_unwatch(ctx->xs.xsh, watches[1].path, sctx->token);
+out_unwatch0:
+    xs_unwatch(ctx->xs.xsh, watches[0].path, sctx->token);
+out_ret:
+    if (shutdown_path) {
+        free(shutdown_path);
+    }
+
+    return ret;
 }
 
 int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
@@ -424,11 +710,15 @@ int h2_xen_xs_probe_guest(h2_xen_ctx* ctx, h2_guest* guest)
     xs_val = xs_read(ctx->xs.xsh, XBT_NULL, dom_path, &xs_val_len);
     if (xs_val == NULL) {
         guest->hyp.guest.xen->priv.xs.active = false;
+        guest->hyp.guest.xen->xs.active = false;
         free(dom_path);
     } else {
         guest->hyp.guest.xen->priv.xs.active = true;
         guest->hyp.guest.xen->priv.xs.dom_path = dom_path;
+        guest->hyp.guest.xen->xs.active = true;
         free(xs_val);
+
+        ret = __read_kv(ctx, XBT_NULL, dom_path, "name", &guest->name);
     }
 
 out:

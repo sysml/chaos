@@ -49,7 +49,6 @@ void h2_xen_xc_close(h2_xen_ctx* ctx);
 void h2_xen_xc_priv_free(h2_xen_guest* guest);
 
 
-typedef int (*shutdown_callback_t)(h2_xen_ctx* ctx, h2_guest* guest);
 
 int h2_xen_xc_domain_preinit(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_fastboot(h2_xen_ctx* ctx, h2_guest* guest);
@@ -58,8 +57,7 @@ int h2_xen_xc_domain_create(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_query(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
-int h2_xen_xc_domain_shutdown(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait);
-int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, shutdown_callback_t shutdown_cb, bool wait);
+int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, h2_shutdown_callback_t shutdown_cb, void* user);
 int h2_xen_xc_domain_resume(h2_xen_ctx* ctx, h2_guest* guest);
 
 #endif /* __H2__XEN__XC__H__ */
