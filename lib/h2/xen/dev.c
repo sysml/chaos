@@ -40,6 +40,7 @@
 #include <h2/xen/noxs.h>
 #endif
 #include <h2/xen/vif.h>
+#include <h2/xen/vbd.h>
 #include <h2/xen/xs.h>
 
 
@@ -55,6 +56,10 @@ void h2_xen_dev_reuse(h2_xen_dev* dev)
         case h2_xen_dev_t_vif:
             h2_xen_vif_reuse(&(dev->dev.vif));
             break;
+
+        case h2_xen_dev_t_vbd:
+            h2_xen_vbd_reuse(&(dev->dev.vbd));
+            break;
     }
 }
 
@@ -69,6 +74,10 @@ void h2_xen_dev_free(h2_xen_dev* dev)
 
         case h2_xen_dev_t_vif:
             h2_xen_vif_free(&(dev->dev.vif));
+            break;
+
+        case h2_xen_dev_t_vbd:
+            h2_xen_vbd_free(&(dev->dev.vbd));
             break;
     }
 
@@ -139,6 +148,10 @@ int h2_xen_dev_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
         case h2_xen_dev_t_vif:
             ret = h2_xen_vif_create(ctx, guest, &(dev->dev.vif));
             break;
+
+        case h2_xen_dev_t_vbd:
+            ret = h2_xen_vbd_create(ctx, guest, &(dev->dev.vbd));
+            break;
     }
 
     return ret;
@@ -159,6 +172,10 @@ int h2_xen_dev_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev* dev)
 
         case h2_xen_dev_t_vif:
             ret = h2_xen_vif_destroy(ctx, guest, &(dev->dev.vif));
+            break;
+
+        case h2_xen_dev_t_vbd:
+            ret = h2_xen_vbd_destroy(ctx, guest, &(dev->dev.vbd));
             break;
     }
 
