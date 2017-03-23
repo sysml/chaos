@@ -35,6 +35,7 @@
  */
 
 #include <h2/xen/noxs.h>
+#include <h2/xen/xdd.h>
 
 #include <fcntl.h>
 #include <string.h>
@@ -190,6 +191,11 @@ static int __dev_query_vbd_config(h2_xen_ctx* ctx, h2_guest* guest,
         default:
             ret = ENOSYS;
             goto out_ret;
+    }
+
+    ret = xdd_vbd_query(vbd);
+    if (ret) {
+        goto out_ret;
     }
 
 out_ret:
@@ -728,6 +734,11 @@ int h2_xen_noxs_vbd_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd
         goto out_err;
     }
 
+    ret = xdd_vbd_add(vbd);
+    if (ret) {
+        goto out_err;
+    }
+
     ioctlc.type = noxs_user_dev_vbd;
     ioctlc.be_id = vbd->backend_id;
     ioctlc.fe_id = guest->id;
@@ -757,6 +768,8 @@ out_vbd:
     ioctld.devid = ioctlc.devid;
 
     ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+
+    xdd_vbd_remove(vbd);
 
 out_err:
     return ret;
@@ -788,6 +801,11 @@ int h2_xen_noxs_vbd_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vb
     }
 
     __dev_remove(ctx, guest, noxs_dev_vbd, vbd->id);
+
+    ret = xdd_vbd_remove(vbd);
+    if (ret) {
+        goto out_err;
+    }
 
     return 0;
 

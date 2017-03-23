@@ -11,6 +11,9 @@ ifneq ($(LINUX_HEADERS),)
 CFLAGS		+= -I$(LINUX_HEADERS)
 endif
 
+CFLAGS		+= -I$(XDD_ROOT)/inc
+LDFLAGS		+= -L$(XDD_ROOT)/lib -lxddconn-client
+
 XEN_CFLAGS	:=
 XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/include
 XEN_CFLAGS	+= -I$(XEN_ROOT)/tools/libxc/include

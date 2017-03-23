@@ -23,3 +23,7 @@ XEN_PREFIX      := /usr/local
 # Linux sources
 ## Point to the location of UAPI headers, if not using system installed ones
 LINUX_HEADERS   :=
+
+# Xendevd sources
+XDD_ROOT	:=
+
