@@ -55,4 +55,6 @@ void h2_serialized_cfg_free(h2_serialized_cfg* cfg);
 int  h2_serialized_cfg_read(h2_serialized_cfg* cfg, stream_desc* sd);
 int  h2_serialized_cfg_write(h2_serialized_cfg* cfg, stream_desc* sd);
 
+int h2_vdev_to_vbd_id(const char* vdev, int* out_disk, int* out_partition);
+
 #endif /* __CHAOS__CONFIG__H__ */

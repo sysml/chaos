@@ -85,6 +85,19 @@ struct config {
     int vifs_count;
     bool vifs_set;
 
+    struct {
+        const char* target;
+        bool target_set;
+        const char* type;
+        bool type_set;
+        const char* vdev;
+        bool vdev_set;
+        const char* access;
+        bool access_set;
+    } vbds[DEV_MAX_COUNT];
+    int vbds_count;
+    bool vbds_set;
+
     bool paused;
     bool paused_set;
 
@@ -195,6 +208,21 @@ static int __to_h2_xen(config* conf, h2_guest** guest)
         dev++;
     }
 
+    for (int i = 0; i < conf->vbds_count; i++) {
+        int num, disk, part;
+
+        num = h2_vdev_to_vbd_id(conf->vbds[i].vdev, &disk, &part);
+        dev->type = h2_xen_dev_t_vbd;
+        dev->dev.vbd.id = num;
+        dev->dev.vbd.backend_id = 0;
+        dev->dev.vbd.meth = conf->xen.dev_meth;
+        dev->dev.vbd.target = strdup(conf->vbds[i].target);
+        dev->dev.vbd.target_type = strdup(conf->vbds[i].type);
+        dev->dev.vbd.access = strdup(conf->vbds[i].access);
+        dev->dev.vbd.vdev = strdup(conf->vbds[i].vdev);
+        dev++;
+    }
+
     return 0;
 
 out:
@@ -246,6 +274,13 @@ static int __from_h2_xen(config* conf, h2_guest* guest)
             if (dev->dev.vif.bridge)
                 conf->vifs[conf->vifs_count].bridge = strdup(dev->dev.vif.bridge);
             conf->vifs_count++;
+
+        } else if (dev->type == h2_xen_dev_t_vbd) {
+            conf->vbds[conf->vbds_count].target = strdup(dev->dev.vbd.target);
+            conf->vbds[conf->vbds_count].type = strdup(dev->dev.vbd.target_type);
+            conf->vbds[conf->vbds_count].vdev = strdup(dev->dev.vbd.vdev);
+            conf->vbds[conf->vbds_count].access = strdup(dev->dev.vbd.access);
+            conf->vbds_count++;
         }
     }
 
@@ -423,6 +458,157 @@ static int __dump_vif(json_t** vif, config* conf, int vid)
     json_object_set_new(*vif, "mac", json_string(mac_str));
 
     json_object_set_new(*vif, "bridge", json_string(conf->vifs[vid].bridge));
+
+    return 0;
+
+out:
+    return ret;
+}
+
+static void __parse_vbds(json_t* vbds, config* conf)
+{
+    size_t idx;
+    json_t* vbd;
+    json_t* value;
+    const char* key;
+
+    if (!json_is_array(vbds)) {
+        fprintf(stderr, "Parameter 'vbds' has invalid type, must be array.\n");
+        conf->error = true;
+        return;
+    }
+
+    json_array_foreach(vbds, idx, vbd) {
+        /* In case of error the loop will `continue` without incrementing the
+         * counter, so do it at the beginning and access `vbds_count - 1`.
+         */
+        conf->vbds_count++;
+
+        if (conf->vbds_count >= DEV_MAX_COUNT) {
+            fprintf(stderr, "Too many vbds defined. Maximum %d supported.\n", DEV_MAX_COUNT);
+            conf->error = true;
+            break;
+        }
+
+        if (!json_is_object(vbd)) {
+            fprintf(stderr, "Parameter 'vbds' contains invalid element. Must be array of objects.\n");
+            conf->error = true;
+            continue;
+        }
+
+        json_object_foreach(vbd, key, value) {
+            if (strcmp(key, "target") == 0) {
+                if (conf->vbds[conf->vbds_count - 1].target_set) {
+                    fprintf(stderr, "Parameter 'target' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vbds[conf->vbds_count - 1].target_set = true;
+
+                conf->vbds[conf->vbds_count - 1].target = json_string_value(value);
+                if (conf->vbds[conf->vbds_count - 1].target == NULL) {
+                    fprintf(stderr, "Parameter 'target' has invalid type, must be string.\n");
+                    conf->error = true;
+                    continue;
+                }
+            } else if (strcmp(key, "type") == 0) {
+                if (conf->vbds[conf->vbds_count - 1].type_set) {
+                    fprintf(stderr, "Parameter 'type' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vbds[conf->vbds_count - 1].type_set = true;
+
+                conf->vbds[conf->vbds_count - 1].type = json_string_value(value);
+                if (conf->vbds[conf->vbds_count - 1].type == NULL) {
+                    fprintf(stderr, "Parameter 'type' has invalid type, must be string.\n");
+                    conf->error = true;
+                }
+
+                if (strcmp(conf->vbds[conf->vbds_count - 1].type, "phy") != 0 &&
+                    strcmp(conf->vbds[conf->vbds_count - 1].type, "file") != 0) {
+                    fprintf(stderr, "Parameter 'access' has invalid value, must be \"phy\" or \"file\".\n");
+                    conf->error = true;
+                }
+            } else if (strcmp(key, "vdev") == 0) {
+                if (conf->vbds[conf->vbds_count - 1].vdev_set) {
+                    fprintf(stderr, "Parameter 'vdev' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vbds[conf->vbds_count - 1].vdev_set = true;
+
+                conf->vbds[conf->vbds_count - 1].vdev = json_string_value(value);
+                if (conf->vbds[conf->vbds_count - 1].vdev == NULL) {
+                    fprintf(stderr, "Parameter 'vdev' has invalid type, must be string.\n");
+                    conf->error = true;
+                }
+            } else if (strcmp(key, "access") == 0) {
+                if (conf->vbds[conf->vbds_count - 1].access_set) {
+                    fprintf(stderr, "Parameter 'access' defined multiple times.\n");
+                    conf->error = true;
+                    continue;
+                }
+
+                conf->vbds[conf->vbds_count - 1].access_set = true;
+
+                conf->vbds[conf->vbds_count - 1].access = json_string_value(value);
+                if (conf->vbds[conf->vbds_count - 1].access == NULL) {
+                    fprintf(stderr, "Parameter 'access' has invalid type, must be string.\n");
+                    conf->error = true;
+                }
+
+                if (strcmp(conf->vbds[conf->vbds_count - 1].access, "r") != 0 &&
+                    strcmp(conf->vbds[conf->vbds_count - 1].access, "w") != 0) {
+                    fprintf(stderr, "Parameter 'access' has invalid value, must be \"r\" or \"w\".\n");
+                    conf->error = true;
+                }
+            } else {
+                fprintf(stderr, "Invalid parameter '%s' on vbd definition.\n", key);
+                conf->error = true;
+            }
+        }
+
+        if (conf->vbds[conf->vbds_count - 1].target_set == false) {
+            fprintf(stderr, "Target not set for vbd device.\n");
+            conf->error = true;
+            return;
+        }
+        if (conf->vbds[conf->vbds_count - 1].type_set == false) {
+            fprintf(stderr, "Type not set for vbd device.\n");
+            conf->error = true;
+            return;
+        }
+        if (conf->vbds[conf->vbds_count - 1].vdev_set == false) {
+            fprintf(stderr, "vdev not set for vbd device.\n");
+            conf->error = true;
+            return;
+        }
+        if (conf->vbds[conf->vbds_count - 1].access_set == false) {
+            fprintf(stderr, "Access not set for vbd device.\n");
+            conf->error = true;
+            return;
+        }
+    }
+}
+
+static int __dump_vbd(json_t** vbd, config* conf, int vid)
+{
+    int ret;
+
+    *vbd = json_object();
+    if (*vbd == NULL) {
+        ret = ENOMEM;
+        goto out;
+    }
+
+    json_object_set_new(*vbd, "target", json_string(conf->vbds[vid].target));
+    json_object_set_new(*vbd, "type", json_string(conf->vbds[vid].type));
+    json_object_set_new(*vbd, "vdev", json_string(conf->vbds[vid].vdev));
+    json_object_set_new(*vbd, "access", json_string(conf->vbds[vid].access));
 
     return 0;
 
@@ -734,6 +920,16 @@ static void __parse_root(json_t* root, config* conf)
             conf->vifs_set = true;
 
             __parse_vifs(value, conf);
+        } else if (strcmp(key, "vbds") == 0) {
+            if (conf->vbds_set) {
+                fprintf(stderr, "Parameter 'vbds' defined multiple times.\n");
+                conf->error = true;
+                continue;
+            }
+
+            conf->vbds_set = true;
+
+            __parse_vbds(value, conf);
         } else if (strcmp(key, "paused") == 0) {
             if (conf->paused_set) {
                 fprintf(stderr, "Parameter 'paused' defined multiple times.\n");
@@ -794,6 +990,7 @@ static int __dump_root(json_t** root, config* conf)
     int i;
     json_t* json_arr;
     json_t* vif;
+    json_t* vbd;
     json_t* xen;
 
     *root = json_object();
@@ -822,6 +1019,21 @@ static int __dump_root(json_t** root, config* conf)
             }
 
             json_array_append(json_arr, vif);
+        }
+    }
+
+    if (conf->vbds_count > 0) {
+        json_arr = json_array();
+        json_object_set_new(*root, "vbds", json_arr);
+
+        ret = 0;
+        for (i = 0; i < conf->vbds_count; i++) {
+            ret = __dump_vbd(&vbd, conf, i);
+            if (ret) {
+                goto out;
+            }
+
+            json_array_append(json_arr, vbd);
         }
     }
 
