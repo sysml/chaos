@@ -63,8 +63,10 @@ int h2_xen_vbd_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
             if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
-                /* TODO */
-                ret = 0;
+                ret = h2_xen_noxs_vbd_create(ctx, guest, vbd);
+                if (!ret) {
+                    vbd->valid = true;
+                }
             } else {
                 ret = EINVAL;
             }
@@ -100,8 +102,10 @@ int h2_xen_vbd_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
 #ifdef CONFIG_H2_XEN_NOXS
         case h2_xen_dev_meth_t_noxs:
             if (ctx->noxs.active && guest->hyp.guest.xen->noxs.active) {
-                /* TODO */
-                ret = 0;
+                ret = h2_xen_noxs_vbd_destroy(ctx, guest, vbd);
+                if (!ret) {
+                    vbd->valid = false;
+                }
             } else {
                 ret = EINVAL;
             }
