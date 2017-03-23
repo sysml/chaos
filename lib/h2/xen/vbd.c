@@ -51,8 +51,10 @@ int h2_xen_vbd_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
     switch (vbd->meth) {
         case h2_xen_dev_meth_t_xs:
             if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
-                /* TODO */
-                ret = 0;
+                ret = h2_xen_xs_vbd_create(ctx, guest, vbd);
+                if (!ret) {
+                    vbd->valid = true;
+                }
             } else {
                 ret = EINVAL;
             }
@@ -86,8 +88,10 @@ int h2_xen_vbd_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
     switch (vbd->meth) {
         case h2_xen_dev_meth_t_xs:
             if (ctx->xs.active && guest->hyp.guest.xen->xs.active) {
-                /* TODO */
-                ret = 0;
+                ret = h2_xen_xs_vbd_destroy(ctx, guest, vbd);
+                if (!ret) {
+                    vbd->valid = false;
+                }
             } else {
                 ret = EINVAL;
             }
