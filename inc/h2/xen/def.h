@@ -112,6 +112,7 @@ enum h2_xen_dev_t {
     h2_xen_dev_t_none = 0 ,
     h2_xen_dev_t_sysctl ,
     h2_xen_dev_t_vif ,
+    h2_xen_dev_t_vbd ,
 };
 typedef enum h2_xen_dev_t h2_xen_dev_t;
 
@@ -133,11 +134,29 @@ struct h2_xen_dev_vif {
 };
 typedef struct h2_xen_dev_vif h2_xen_dev_vif;
 
+struct h2_xen_dev_vbd {
+    int id;
+    bool valid;
+    h2_xen_dev_meth_t meth;
+
+    domid_t backend_id;
+    char* target;
+    char* target_type;
+    char* vdev;
+    char* access;
+    char* script;
+
+    int major;
+    int minor;
+};
+typedef struct h2_xen_dev_vbd h2_xen_dev_vbd;
+
 struct h2_xen_dev {
     h2_xen_dev_t type;
     union {
         h2_xen_dev_sysctl sysctl;
         h2_xen_dev_vif vif;
+        h2_xen_dev_vbd vbd;
     } dev;
 };
 typedef struct h2_xen_dev h2_xen_dev;

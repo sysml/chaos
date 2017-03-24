@@ -81,4 +81,7 @@ int h2_xen_noxs_console_destroy(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_noxs_vif_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
 int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif);
 
+int h2_xen_noxs_vbd_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd);
+int h2_xen_noxs_vbd_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd);
+
 #endif /* __H2__XEN__NOXS__H__ */

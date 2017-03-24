@@ -247,6 +247,111 @@ out_path:
     return ret;
 }
 
+static int __enumerate_vbd(h2_xen_ctx* ctx, h2_guest* guest)
+{
+    int ret;
+
+    char** xs_list;
+    unsigned int xs_list_num;
+
+    char* fe_dev_path;
+    char* fe_path;
+
+    int idx;
+    h2_xen_dev* dev;
+
+    ret = 0;
+
+    asprintf(&fe_path, "%s/device/%s", guest->hyp.guest.xen->priv.xs.dom_path, "vbd");
+
+    xs_list = xs_directory(ctx->xs.xsh, XBT_NULL, fe_path, &xs_list_num);
+    if (xs_list == NULL) {
+        /* List is empty. */
+        goto out_path;
+    }
+
+    idx = 0;
+    for (int i = 0; i < xs_list_num; i++) {
+        char* toolstack;
+        char* be_dev_path;
+        char* be_id_str;
+
+        dev = h2_xen_dev_get_next(guest, h2_xen_dev_t_none, &idx);
+        if (!dev) {
+            ret = ENOMEM;
+            break;
+        }
+
+        asprintf(&fe_dev_path, "%s/%s", fe_path, xs_list[i]);
+
+        ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
+        if (ret) {
+            goto free_fe_dev_path;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend-id", &be_id_str);
+        if (ret) {
+            goto free_be_dev_path;
+        }
+
+        /* Check if created by chaos */
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "toolstack", &toolstack);
+        if (ret) {
+            goto free_be_id;
+        }
+        if (toolstack == NULL || strcmp(toolstack, "chaos") != 0) {
+            ret = EINVAL;
+            goto free_toolstack;
+        }
+
+        dev->type = h2_xen_dev_t_vbd;
+        dev->dev.vbd.id = atoi(xs_list[i]);
+        dev->dev.vbd.valid = true;
+        dev->dev.vbd.meth = h2_xen_dev_meth_t_xs;
+        dev->dev.vbd.backend_id = atoi(be_id_str);
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "params", &dev->dev.vbd.target);
+        if (ret) {
+            goto free_be_id;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "type", &dev->dev.vbd.target_type);
+        if (ret) {
+            goto free_be_id;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "dev", &dev->dev.vbd.vdev);
+        if (ret) {
+            goto free_be_id;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "mode", &dev->dev.vbd.access);
+        if (ret) {
+            goto free_be_id;
+        }
+
+        ret = __read_kv(ctx, XBT_NULL, be_dev_path, "script", &dev->dev.vbd.script);
+        if (ret) {
+            goto free_be_id;
+        }
+
+free_toolstack:
+        free(toolstack);
+free_be_id:
+        free(be_id_str);
+free_be_dev_path:
+        free(be_dev_path);
+free_fe_dev_path:
+        free(fe_dev_path);
+    }
+
+    free(xs_list);
+out_path:
+    free(fe_path);
+
+    return ret;
+}
+
 
 int h2_xen_xs_open(h2_xen_ctx* ctx)
 {
@@ -744,6 +849,11 @@ int h2_xen_xs_dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
         goto out;
     }
 
+    ret = __enumerate_vbd(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
 out:
     return ret;
 }
@@ -1036,6 +1146,222 @@ int h2_xen_xs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vif)
 
     asprintf(&fe_dev_path, "%s/device/%s/%d",
             guest->hyp.guest.xen->priv.xs.dom_path, "vif", vif->id);
+
+    ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
+    if (ret) {
+        goto out_fe;
+    }
+
+th_start:
+    ret = 0;
+    th = xs_transaction_start(ctx->xs.xsh);
+
+    if (!xs_rm(ctx->xs.xsh, th, fe_dev_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_rm(ctx->xs.xsh, th, be_dev_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+th_end:
+    if (ret) {
+        xs_transaction_end(ctx->xs.xsh, th, true);
+    } else {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
+            if (errno == EAGAIN) {
+                goto th_start;
+            } else {
+                ret = errno;
+            }
+        }
+    }
+
+    free(be_dev_path);
+out_fe:
+    free(fe_dev_path);
+out:
+    return ret;
+}
+
+int h2_xen_xs_vbd_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
+{
+    int ret;
+
+    xs_transaction_t th;
+
+    char* dev_id_str;
+    char* fe_dom_path;
+    char* fe_path;
+    char* fe_id_str;
+    char* be_dom_path;
+    char* be_path;
+    char* be_id_str;
+
+    struct xs_permissions fe_perms[2];
+    struct xs_permissions be_perms[2];
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
+    fe_perms[0].id = guest->id;
+    fe_perms[0].perms = XS_PERM_NONE;
+    fe_perms[1].id = vbd->backend_id;
+    fe_perms[1].perms = XS_PERM_READ;
+
+    be_perms[0].id = vbd->backend_id;
+    be_perms[0].perms = XS_PERM_NONE;
+    be_perms[1].id = guest->id;
+    be_perms[1].perms = XS_PERM_READ;
+
+    asprintf(&dev_id_str, "%d", vbd->id);
+
+    fprintf(stderr, "h2_xen_xs_vbd_create\n");
+
+    fe_dom_path = guest->hyp.guest.xen->priv.xs.dom_path;
+    asprintf(&fe_path, "%s/device/%s/%s", fe_dom_path, "vbd", dev_id_str);
+    asprintf(&fe_id_str, "%u", (domid_t) guest->id);
+
+    be_dom_path = xs_get_domain_path(ctx->xs.xsh, vbd->backend_id);
+    asprintf(&be_path, "%s/backend/%s/%u/%d", be_dom_path, "vbd", (domid_t) guest->id, vbd->id);
+    asprintf(&be_id_str, "%d", vbd->backend_id);
+
+th_start:
+    th = xs_transaction_start(ctx->xs.xsh);
+
+    if (!xs_mkdir(ctx->xs.xsh, th, fe_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_set_permissions(ctx->xs.xsh, th, fe_path, fe_perms, 2)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "backend", be_path);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "backend-id", be_id_str);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, fe_path, "state", "1");
+    if (ret) {
+        goto th_end;
+    }
+
+    if (!xs_mkdir(ctx->xs.xsh, th, be_path)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    if (!xs_set_permissions(ctx->xs.xsh, th, be_path, be_perms, 2)) {
+        ret = errno;
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "toolstack", "chaos");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "frontend", fe_path);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "frontend-id", fe_id_str);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "online", "1");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "state", "1");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "params", vbd->target);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "type", vbd->target_type);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "dev", vbd->vdev);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "mode", vbd->access);
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "hotplug-status", "");
+    if (ret) {
+        goto th_end;
+    }
+
+    ret = __write_kv(ctx, th, be_path, "script", vbd->script ? vbd->script : "");
+    if (ret) {
+        goto th_end;
+    }
+
+th_end:
+    if (ret) {
+        xs_transaction_end(ctx->xs.xsh, th, true);
+    } else {
+        if (!xs_transaction_end(ctx->xs.xsh, th, false)) {
+            if (errno == EAGAIN) {
+                goto th_start;
+            } else {
+                ret = errno;
+            }
+        }
+    }
+
+    free(dev_id_str);
+    free(fe_path);
+    free(fe_id_str);
+    free(be_dom_path);
+    free(be_path);
+    free(be_id_str);
+out:
+    return ret;
+}
+
+int h2_xen_xs_vbd_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
+{
+    int ret;
+
+    xs_transaction_t th;
+
+    char* fe_dev_path;
+    char* be_dev_path;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out;
+    }
+
+    asprintf(&fe_dev_path, "%s/device/%s/%d",
+            guest->hyp.guest.xen->priv.xs.dom_path, "vbd", vbd->id);
 
     ret = __read_kv(ctx, XBT_NULL, fe_dev_path, "backend", &be_dev_path);
     if (ret) {

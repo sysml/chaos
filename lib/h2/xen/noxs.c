@@ -35,6 +35,7 @@
  */
 
 #include <h2/xen/noxs.h>
+#include <h2/xen/xdd.h>
 
 #include <fcntl.h>
 #include <string.h>
@@ -148,6 +149,59 @@ out_ret:
     return ret;
 }
 
+static int __dev_query_vbd_config(h2_xen_ctx* ctx, h2_guest* guest,
+        noxs_dev_id_t dev_id, h2_xen_dev_vbd* vbd)
+{
+    int ret;
+    struct noxs_ioctl_dev_query_cfg ioctlq;
+
+    ioctlq.type = noxs_user_dev_vbd;
+    ioctlq.be_id = 0;
+    ioctlq.fe_id = guest->id;
+    ioctlq.devid = dev_id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_QUERY_CFG, &ioctlq);
+    if (ret) {
+        ret = errno;
+        goto out_ret;
+    }
+
+    vbd->major = ioctlq.cfg.vbd.major;
+    vbd->minor = ioctlq.cfg.vbd.minor;
+
+    switch(ioctlq.cfg.vbd.type) {
+        case noxs_user_vbd_type_phy:
+            vbd->target_type = strdup("phy");
+            break;
+        case noxs_user_vbd_type_file:
+            vbd->target_type = strdup("file");
+            break;
+        default:
+            ret = ENOSYS;
+            goto out_ret;
+    }
+
+    switch(ioctlq.cfg.vbd.mode) {
+        case noxs_user_vbd_mode_rdonly:
+            vbd->access = strdup("r");
+            break;
+        case noxs_user_vbd_mode_rdwr:
+            vbd->access = strdup("w");
+            break;
+        default:
+            ret = ENOSYS;
+            goto out_ret;
+    }
+
+    ret = xdd_vbd_query(vbd);
+    if (ret) {
+        goto out_ret;
+    }
+
+out_ret:
+    return ret;
+}
+
 static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
 {
     int ret;
@@ -197,6 +251,20 @@ static int __dev_enumerate(h2_xen_ctx* ctx, h2_guest* guest)
                 devs[j].dev.vif.valid = true;
 
                 ret = __dev_query_vif_config(ctx, guest, dev->id, &devs[j].dev.vif);
+                if (ret) {
+                    goto out_ret;
+                }
+                break;
+
+            case noxs_dev_vbd:
+                devs[j].type = h2_xen_dev_t_vbd;
+                devs[j].dev.vbd.id = dev->id;
+                devs[j].dev.vbd.backend_id = dev->be_id;
+
+                devs[j].dev.vbd.meth = h2_xen_dev_meth_t_noxs;
+                devs[j].dev.vbd.valid = true;
+
+                ret = __dev_query_vbd_config(ctx, guest, dev->id, &devs[j].dev.vbd);
                 if (ret) {
                     goto out_ret;
                 }
@@ -622,6 +690,122 @@ int h2_xen_noxs_vif_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vif* vi
     }
 
     __dev_remove(ctx, guest, noxs_dev_vif, vif->id);
+
+    return 0;
+
+out_err:
+    return ret;
+}
+
+
+int h2_xen_noxs_vbd_create(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
+{
+    int ret;
+    struct noxs_ioctl_dev_create ioctlc;
+    struct noxs_ioctl_dev_destroy ioctld;
+    enum noxs_user_vbd_type type;
+    enum noxs_user_vbd_mode mode;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (vbd == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    if (strcmp(vbd->target_type, "phy") == 0) {
+        type = noxs_user_vbd_type_phy;
+    } else if (strcmp(vbd->target_type, "file") == 0) {
+        type = noxs_user_vbd_type_file;
+    } else {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    if (strcmp(vbd->access, "r") == 0) {
+        mode = noxs_user_vbd_mode_rdonly;
+    } else if (strcmp(vbd->access, "w") == 0) {
+        mode = noxs_user_vbd_mode_rdwr;
+    } else {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ret = xdd_vbd_add(vbd);
+    if (ret) {
+        goto out_err;
+    }
+
+    ioctlc.type = noxs_user_dev_vbd;
+    ioctlc.be_id = vbd->backend_id;
+    ioctlc.fe_id = guest->id;
+    ioctlc.devid = vbd->id;
+    ioctlc.cfg.vbd.major = vbd->major;
+    ioctlc.cfg.vbd.minor = vbd->minor;
+    ioctlc.cfg.vbd.type = type;
+    ioctlc.cfg.vbd.mode = mode;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_CREATE, &ioctlc);
+    if (ret) {
+        goto out_err;
+    }
+
+    ret = __dev_append(ctx, guest, noxs_dev_vbd,
+            ioctlc.devid, ioctlc.be_id, ioctlc.evtchn, ioctlc.grant);
+    if (ret) {
+        goto out_vbd;
+    }
+
+    return 0;
+
+out_vbd:
+    ioctld.type = ioctlc.type;
+    ioctld.be_id = ioctlc.be_id;
+    ioctld.fe_id = ioctlc.fe_id;
+    ioctld.devid = ioctlc.devid;
+
+    ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+
+    xdd_vbd_remove(vbd);
+
+out_err:
+    return ret;
+}
+
+int h2_xen_noxs_vbd_destroy(h2_xen_ctx* ctx, h2_guest* guest, h2_xen_dev_vbd* vbd)
+{
+    int ret;
+    struct noxs_ioctl_dev_destroy ioctld;
+
+    ret = __guest_pre(ctx, guest);
+    if (ret) {
+        goto out_err;
+    }
+
+    if (vbd == NULL) {
+        ret = EINVAL;
+        goto out_err;
+    }
+
+    ioctld.type = noxs_user_dev_vbd;
+    ioctld.be_id = vbd->backend_id;
+    ioctld.fe_id = guest->id;
+    ioctld.devid = vbd->id;
+
+    ret = ioctl(ctx->noxs.fd, IOCTL_NOXS_DEV_DESTROY, &ioctld);
+    if (ret) {
+        goto out_err;
+    }
+
+    __dev_remove(ctx, guest, noxs_dev_vbd, vbd->id);
+
+    ret = xdd_vbd_remove(vbd);
+    if (ret) {
+        goto out_err;
+    }
 
     return 0;
 
