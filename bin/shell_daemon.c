@@ -51,10 +51,11 @@
 #define ERROR(format...) syslog(LOG_DAEMON | LOG_ERR, format)
 #define WARN(format...) syslog(LOG_DAEMON | LOG_WARNING, format)
 #define NOTICE(format...) syslog(LOG_DAEMON | LOG_NOTICE, format)
-#define INFO(format...) syslog(LOG_DAEMON | LOG_INFO, format)
+#define INFO(format...) if (global.verbose) { syslog(LOG_DAEMON | LOG_INFO, format); }
 
 /* Global state */
 struct {
+    bool verbose;
     bool socket_created;
     int sockfd;
     bool shutting_down;
@@ -464,6 +465,8 @@ int main(int argc, char **argv)
         ret = cmd.error ? -EINVAL : 0;
         goto out;
     }
+
+    global.verbose = cmd.verbose;
 
     ret = daemonize();
     if (ret) {

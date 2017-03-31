@@ -12,6 +12,7 @@ struct cmdline {
 
     unsigned long shells;
     unsigned long memory;
+    bool verbose;
 };
 typedef struct cmdline cmdline;
 

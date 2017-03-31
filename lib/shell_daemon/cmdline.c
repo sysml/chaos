@@ -18,11 +18,12 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
     __init(cmd);
 
 
-    const char *short_opts = "hm:s:";
+    const char *short_opts = "hm:s:v";
     const struct option long_opts[] = {
         { "help"               , no_argument       , NULL , 'h' },
         { "memory"             , required_argument , NULL , 'm' },
         { "shells"             , required_argument , NULL , 's' },
+        { "verbose"            , required_argument , NULL , 'v' },
         { NULL , 0 , NULL , 0 }
     };
 
@@ -32,6 +33,7 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
     // Default values
     cmd->memory = 64 * 1024;
     cmd->shells = 10;
+    cmd->verbose = false;
 
     while (1) {
         opt = getopt_long(argc, argv, short_opts, long_opts, &opt_index);
@@ -61,6 +63,10 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
                 }
                 break;
 
+            case 'v':
+                cmd->verbose = true;
+                break;
+
             default:
                 cmd->error = true;
                 break;
@@ -77,5 +83,6 @@ void cmdline_usage(char* argv0)
     printf("  -h, --help             Display this help and exit.\n");
     printf("  -m, --memory           Amount of memory per shell [MB]\n");
     printf("  -s, --shells           Number of shells to precreate\n");
+    printf("  -v, --verbose          Write more detailed information to syslog\n");
     printf("\n");
 }
