@@ -398,7 +398,7 @@ out_free:
 
 int precreate_shells(unsigned long shells, unsigned long memory)
 {
-    int i;
+    unsigned long i;
     h2_hyp_cfg cfg;
 
     if (shells > MAX_SHELLS) {
@@ -416,17 +416,18 @@ int precreate_shells(unsigned long shells, unsigned long memory)
 
     global.remaining_shells = 0;
     global.last_ipaddr = 0;
+    NOTICE("Precreating %lu shells...\n", shells);
     for (i = 0; i < shells; i++) {
         global.shell[i] = precreate_shell(i, &cfg, memory);
         if (!(global.shell[i])) {
-            ERROR("Precreating shell no %u failed, stopping precreation.\n", i);
+            ERROR("Precreating shell no %lu failed, stopping precreation.\n", i);
             return -ENOMEM;
         }
         else {
             global.remaining_shells++;
         }
     }
-    INFO("Precreated %u shells.\n", i);
+    NOTICE("Done. Precreated %lu shells.\n", i);
     return 0;
 }
 
