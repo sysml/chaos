@@ -144,12 +144,11 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
+            ret = h2_guest_deserialize(ctx, &gcc, &guest);
+            if (ret) {
+                goto out_h2;
+            }
             for (int i = 0; i < cmd.nr_doms; i++) {
-                ret = h2_guest_deserialize(ctx, &gcc, &guest);
-                if (ret) {
-                    goto out_h2;
-                }
-
                 ret = h2_guest_create(ctx, guest);
                 if (ret) {
                     goto out_guest;
