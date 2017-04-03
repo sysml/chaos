@@ -48,18 +48,16 @@
  * for faster creation times.
  * Return the number of precreated shells, or a negative error value
  */
-int create_via_daemon(char *cmd_kernel, int nr_doms)
+int create_via_daemon(h2_serialized_cfg cfg, int nr_doms)
 {
-    int filefd, sockfd;
+    int sockfd;
     int ret;
     struct sockaddr_un addr;
     int i;
     char buf[64];
 
-    filefd = open(cmd_kernel, O_RDONLY);
-    if (filefd < 0) {
-        return filefd;
-    }
+    if (cfg.size >= MAX_CONFFILE_SIZE)
+        return -EFBIG;
 
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, sockname, UNIX_PATH_MAX);
@@ -69,7 +67,7 @@ int create_via_daemon(char *cmd_kernel, int nr_doms)
         return -errno;
     }
     for (i = 0; i < nr_doms; i++) {
-        ret = sendfile(sockfd, filefd, NULL, MAX_CONFFILE_SIZE);
+        ret = send(sockfd, cfg.data, cfg.size, 0);
         if (ret < 0) {
             goto out_err;
         }
@@ -196,9 +194,13 @@ int main(int argc, char** argv)
                 goto out_h2;
             }
 
+            ret = h2_guest_deserialize(ctx, &gcc, &guest);
+            if (ret) {
+                goto out_h2;
+            }
             if ((!cmd.skip_shell_daemon) && (ctx->hyp.type == h2_hyp_t_xen)) {
                 // Try creating via the daemon first
-                ret = create_via_daemon(cmd.kernel, cmd.nr_doms);
+                ret = create_via_daemon(gcc.serialized_cfg, cmd.nr_doms);
                 if (ret == cmd.nr_doms) {
                     // nothing else for us to do: early return.
                     ret = 0;
@@ -213,10 +215,6 @@ int main(int argc, char** argv)
             }
 
             // create all or the remaining VMs on our own
-            ret = h2_guest_deserialize(ctx, &gcc, &guest);
-            if (ret) {
-                goto out_h2;
-            }
             for (int i = ret; i < cmd.nr_doms; i++) {
                 ret = h2_guest_create(ctx, guest);
                 if (ret) {
