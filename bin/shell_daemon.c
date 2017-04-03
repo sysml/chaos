@@ -311,7 +311,7 @@ void wait_for_sockdata(void) {
     }
 }
 
-h2_guest* precreate_shell(unsigned long ind, h2_hyp_cfg* cfg, unsigned long memory)
+h2_guest* precreate_shell(unsigned long ind, h2_hyp_cfg* cfg, unsigned long memory, bool xenstore)
 {
     int ret;
     int i;
@@ -340,17 +340,26 @@ h2_guest* precreate_shell(unsigned long ind, h2_hyp_cfg* cfg, unsigned long memo
     shell->kernel.buff.file.rd_path */
 
     shell->hyp.guest.xen->pvh = false;
-    shell->hyp.guest.xen->xs.active = true;
+    shell->hyp.guest.xen->xs.active = xenstore;
 #ifdef CONFIG_H2_XEN_NOXS
     shell->hyp.guest.xen->noxs.active = true;
 #endif
-    shell->hyp.guest.xen->console.active = true;
-    shell->hyp.guest.xen->console.meth = h2_xen_dev_meth_t_xs;
-    shell->hyp.guest.xen->console.be_id = 0;
+    if (xenstore) {
+        shell->hyp.guest.xen->console.active = true;
+        shell->hyp.guest.xen->console.meth = h2_xen_dev_meth_t_xs;
+        shell->hyp.guest.xen->console.be_id = 0;
+    }
+    else {
+        shell->hyp.guest.xen->console.active = false;
+    }
     shell->hyp.guest.xen->devs[1].type = h2_xen_dev_t_vif;
     shell->hyp.guest.xen->devs[1].dev.vif.id = 0;
     shell->hyp.guest.xen->devs[1].dev.vif.backend_id = 0;
+#ifdef CONFIG_H2_XEN_NOXS
+    shell->hyp.guest.xen->devs[1].dev.vif.meth = xenstore ? h2_xen_dev_meth_t_xs : h2_xen_dev_meth_t_noxs;
+#else
     shell->hyp.guest.xen->devs[1].dev.vif.meth = h2_xen_dev_meth_t_xs;
+#endif
     // increment IP address...
     global.last_ipaddr++;
     // .. but make sure to skip a.b.c.0 and a.b.c.255
@@ -398,7 +407,7 @@ out_free:
     return NULL;
 }
 
-int precreate_shells(unsigned long shells, unsigned long memory)
+int precreate_shells(unsigned long shells, unsigned long memory, bool xenstore)
 {
     unsigned long i;
     h2_hyp_cfg cfg;
@@ -410,7 +419,7 @@ int precreate_shells(unsigned long shells, unsigned long memory)
     }
 
     cfg.xen.xs.domid = 0;
-    cfg.xen.xs.active = true;
+    cfg.xen.xs.active = xenstore;
 #ifdef CONFIG_H2_XEN_NOXS
     cfg.xen.noxs.active = true;
 #endif
@@ -420,7 +429,7 @@ int precreate_shells(unsigned long shells, unsigned long memory)
     global.last_ipaddr = 0;
     NOTICE("Precreating %lu shells...\n", shells);
     for (i = 0; i < shells; i++) {
-        global.shell[i] = precreate_shell(i, &cfg, memory);
+        global.shell[i] = precreate_shell(i, &cfg, memory, xenstore);
         if (!(global.shell[i])) {
             ERROR("Precreating shell no %lu failed, stopping precreation.\n", i);
             return -ENOMEM;
@@ -481,8 +490,7 @@ int main(int argc, char **argv)
         ret = global.sockfd;
         goto out;
     }
-
-    precreate_shells(cmd.shells, cmd.memory);
+    precreate_shells(cmd.shells, cmd.memory, cmd.xenstore);
 
     while (1) {
         if (global.shutting_down) {

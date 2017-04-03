@@ -18,11 +18,12 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
     __init(cmd);
 
 
-    const char *short_opts = "hm:s:v";
+    const char *short_opts = "hm:s:xv";
     const struct option long_opts[] = {
         { "help"               , no_argument       , NULL , 'h' },
         { "memory"             , required_argument , NULL , 'm' },
         { "shells"             , required_argument , NULL , 's' },
+        { "xenstore"           , required_argument , NULL , 'x' },
         { "verbose"            , required_argument , NULL , 'v' },
         { NULL , 0 , NULL , 0 }
     };
@@ -33,6 +34,11 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
     // Default values
     cmd->memory = 64 * 1024;
     cmd->shells = 10;
+#ifdef CONFIG_H2_XEN_NOXS
+    cmd->xenstore = false;
+#else
+    cmd->xenstore = true;
+#endif
     cmd->verbose = false;
 
     while (1) {
@@ -63,6 +69,10 @@ int cmdline_parse(int argc, char** argv, cmdline* cmd)
                 }
                 break;
 
+            case 'x':
+               cmd->xenstore = true;
+               break;
+
             case 'v':
                 cmd->verbose = true;
                 break;
@@ -83,6 +93,7 @@ void cmdline_usage(char* argv0)
     printf("  -h, --help             Display this help and exit.\n");
     printf("  -m, --memory           Amount of memory per shell [MB]\n");
     printf("  -s, --shells           Number of shells to precreate\n");
+    printf("  -x, --xenstore         Use XenStore even when NoXS is available\n");
     printf("  -v, --verbose          Write more detailed information to syslog\n");
     printf("\n");
 }
