@@ -293,22 +293,21 @@ void wait_for_sockdata(void) {
         }
     }
     else {
-        len = recv(connfd, global.buf, MAX_CONFFILE_SIZE, 0);
-        if (len < 0) {
-            ERROR("error during recv(): %d (%s)\n", errno, strerror(errno));
-            // chances are this might also fail in this case, but we might as well try
-            *(int *)global.buf = (int)len;
-            send(connfd, global.buf, sizeof(int), 0);
-        }
-        else {
+        while ((len = recv(connfd, global.buf, MAX_CONFFILE_SIZE, 0)) > 0) {
             cfg.data = global.buf;
             cfg.size = len;
             ret = fastboot_domain(&cfg);
             *(int *)global.buf = ret;
             send(connfd, global.buf, sizeof(int), 0);
         }
-
-        close(connfd);
+        if (len < 0) {
+            ERROR("error during recv(): %d (%s)\n", errno, strerror(errno));
+            // chances are this might also fail in this case, but we might as well try
+            *(int *)global.buf = (int)len;
+            send(connfd, global.buf, sizeof(int), 0);
+            close(connfd);
+            return;
+        }
     }
 }
 
