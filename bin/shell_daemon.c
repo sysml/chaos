@@ -329,6 +329,9 @@ h2_guest* precreate_shell(unsigned long ind, h2_hyp_cfg* cfg, unsigned long memo
     shell->cmdline = strdup(""); */
     shell->memory = memory;
     shell->vcpus.count = 1;
+    h2_cpu_mask_set_all(shell->vcpus.mask[0]);
+    h2_cpu_mask_clear(shell->vcpus.mask[0], 0);
+    h2_cpu_mask_clear(shell->vcpus.mask[0], 1);
     shell->address_size = 64;
     shell->paused = false;
 
