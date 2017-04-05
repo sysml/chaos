@@ -34,9 +34,59 @@
  * THIS HEADER MAY NOT BE EXTRACTED OR MODIFIED IN ANY WAY.
  */
 
+#include <errno.h>
+#include <string.h>
+#include <linux/un.h>
+#include <fcntl.h>
+#include <sys/sendfile.h>
+
 #include <chaos/cmdline.h>
 #include <h2/config.h>
+#include <ipc.h>
 
+/* Create VMs via the shell daemon, using precreated shells
+ * for faster creation times.
+ * Return the number of precreated shells, or a negative error value
+ */
+int create_via_daemon(h2_serialized_cfg cfg, int nr_doms)
+{
+    int sockfd;
+    int ret;
+    struct sockaddr_un addr;
+    int i;
+    char buf[64];
+
+    if (cfg.size >= MAX_CONFFILE_SIZE)
+        return -EFBIG;
+
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, sockname, UNIX_PATH_MAX);
+    sockfd = socket(AF_UNIX, SOCK_SEQPACKET, 0);
+    ret = connect(sockfd, (struct sockaddr*)&addr, sizeof(addr));
+    if (ret) {
+        return -errno;
+    }
+    for (i = 0; i < nr_doms; i++) {
+        ret = send(sockfd, cfg.data, cfg.size, 0);
+        if (ret < 0) {
+            goto out_err;
+        }
+        ret = recv(sockfd, buf, 64, 0);
+        if (ret < sizeof(int)) {
+            fprintf(stderr, "Received unexpectedly small return value from shell-daemon! (%d < %lu)\n",
+                    ret, sizeof(int));
+            goto out_err;
+        }
+        int retval = *(int *)buf;
+        if (retval) {
+            goto out_err;
+        }
+    }
+    return i;
+
+out_err:
+    return i;
+}
 
 static int __guest_ctrl_create_open(h2_guest_ctrl_create* gcc, bool restore)
 {
@@ -148,7 +198,24 @@ int main(int argc, char** argv)
             if (ret) {
                 goto out_h2;
             }
-            for (int i = 0; i < cmd.nr_doms; i++) {
+            if ((!cmd.skip_shell_daemon) && (ctx->hyp.type == h2_hyp_t_xen)) {
+                // Try creating via the daemon first
+                ret = create_via_daemon(gcc.serialized_cfg, cmd.nr_doms);
+                if (ret == cmd.nr_doms) {
+                    // nothing else for us to do: early return.
+                    ret = 0;
+                    goto out;
+                }
+                else if (ret < 0) {
+                    /* We got an error, most likely because the daemon
+                     * isn't up. Reset ret and continue below.
+                     */
+                    ret = 0;
+                }
+            }
+
+            // create all or the remaining VMs on our own
+            for (int i = ret; i < cmd.nr_doms; i++) {
                 ret = h2_guest_create(ctx, guest);
                 if (ret) {
                     goto out_guest;

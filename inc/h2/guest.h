@@ -66,6 +66,22 @@ typedef uint64_t h2_cpu_mask_t[4];
 #define h2_cpu_mask_is_set(mask, cpuid) \
     (((mask)[cpuid / 64] & (1LU << (cpuid % 64))) != 0)
 
+#define h2_cpu_mask_set_all(mask)          \
+    do {                                   \
+        (mask)[0] = 0xFFFFFFFFFFFFFFFFULL; \
+        (mask)[1] = 0xFFFFFFFFFFFFFFFFULL; \
+        (mask)[2] = 0xFFFFFFFFFFFFFFFFULL; \
+        (mask)[3] = 0xFFFFFFFFFFFFFFFFULL; \
+    } while (0)
+
+#define h2_cpu_mask_clear_all(mask)        \
+    do {                                   \
+        (mask)[0] = 0x0ULL;                \
+        (mask)[1] = 0x0ULL;                \
+        (mask)[2] = 0x0ULL;                \
+        (mask)[3] = 0x0ULL;                \
+    } while (0)
+
 struct h2_guest {
     h2_guest_id id;
 
