@@ -50,6 +50,7 @@ enum operation {
     op_save     ,
     op_restore  ,
     op_migrate  ,
+    op_list     ,
 };
 typedef enum operation operation;
 

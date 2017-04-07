@@ -60,4 +60,5 @@ int h2_xen_xc_domain_unpause(h2_xen_ctx* ctx, h2_guest* guest);
 int h2_xen_xc_domain_save(h2_xen_ctx* ctx, h2_guest* guest, h2_shutdown_callback_t shutdown_cb, void* user);
 int h2_xen_xc_domain_resume(h2_xen_ctx* ctx, h2_guest* guest);
 
+int h2_xen_xc_domain_list(h2_xen_ctx* ctx, struct guestq* guests);
 #endif /* __H2__XEN__XC__H__ */

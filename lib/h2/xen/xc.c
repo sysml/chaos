@@ -744,3 +744,51 @@ int h2_xen_xc_domain_resume(h2_xen_ctx* ctx, h2_guest* guest)
 out_ret:
     return ret;
 }
+
+
+int h2_xen_xc_domain_list(h2_xen_ctx* ctx, struct guestq* guests)
+{
+    int ret;
+
+    domid_t domid;
+    xc_domaininfo_t dominfo[1024];
+
+    h2_guest* guest;
+    struct h2_guest* keep;
+
+    domid = 0;
+    while (true) {
+        ret = xc_domain_getinfolist(ctx->xc.xci, domid, 1024, dominfo);
+        if (ret < 0) {
+            ret = errno;
+            goto out_guests;
+        } else if (ret == 0 ) {
+            break;
+        }
+
+        for (int i = 0; i < ret; i++) {
+            guest = NULL;
+            h2_guest_alloc(&guest, h2_hyp_t_xen);
+
+            __xc_domaininfo_to_h2_guest(dominfo + i, guest);
+
+            TAILQ_INSERT_TAIL(guests, guest, list);
+        }
+
+        domid = dominfo[ret - 1].domain + 1;
+
+        if (ret < 1024) {
+            break;
+        }
+    }
+
+    return 0;
+
+out_guests:
+    TAILQ_FOREACH_SAFE(guest, guests, list, keep) {
+        TAILQ_REMOVE(guests, guest, list);
+        h2_guest_free(&guest);
+    }
+
+    return ret;
+}

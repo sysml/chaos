@@ -156,6 +156,11 @@ int main(int argc, char** argv)
     h2_guest* guest;
     h2_hyp_cfg hyp_cfg;
 
+    struct guestq guests;
+    struct h2_guest* keep;
+
+    TAILQ_INIT(&guests);
+
     h2_guest_ctrl_create gcc;
     h2_guest_ctrl_save gcs;
 
@@ -356,6 +361,24 @@ int main(int argc, char** argv)
 
             h2_guest_free(&guest);
             __guest_ctrl_save_close(&gcs);
+            break;
+
+        case op_list:
+            ret = h2_guest_list(ctx, &guests);
+            if (ret) {
+                goto out_h2;
+            }
+
+            printf("%6s  %6s  %5s\n", "ID", "MEM", "VCPUs");
+
+            TAILQ_FOREACH(guest, &guests, list) {
+                printf("%6lu  %6u  %5u\n", guest->id, guest->memory / 1024, guest->vcpus.count);
+            }
+
+            TAILQ_FOREACH_SAFE(guest, &guests, list, keep) {
+                TAILQ_REMOVE(&guests, guest, list);
+                h2_guest_free(&guest);
+            }
             break;
     }
 
