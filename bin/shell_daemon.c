@@ -352,6 +352,12 @@ h2_guest* precreate_shell(unsigned long ind, h2_hyp_cfg* cfg, unsigned long memo
     else {
         shell->hyp.guest.xen->console.active = false;
     }
+#ifdef CONFIG_H2_XEN_NOXS
+    if (shell->hyp.guest.xen->noxs.active) {
+        shell->hyp.guest.xen->devs[0].type = h2_xen_dev_t_sysctl;
+        shell->hyp.guest.xen->devs[0].dev.sysctl.backend_id = 0;
+    }
+#endif
     shell->hyp.guest.xen->devs[1].type = h2_xen_dev_t_vif;
     shell->hyp.guest.xen->devs[1].dev.vif.id = 0;
     shell->hyp.guest.xen->devs[1].dev.vif.backend_id = 0;
